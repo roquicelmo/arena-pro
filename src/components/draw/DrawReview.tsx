@@ -11,7 +11,7 @@ export function DrawReview({ runs }: { runs: Run[] }) {
       {[...batteries.entries()].map(([battery, items]) => {
         const crosses = [...new Set(items.map((r) => r.cruzamento))];
         return (
-          <section key={battery} className="overflow-hidden rounded-ui border border-line bg-surface" aria-label={`Bateria ${battery}`}>
+          <section key={battery} className="min-w-0 overflow-hidden rounded-ui border border-line bg-surface" aria-label={`Bateria ${battery}`}>
             <h3 className="bg-nav px-4 py-2 font-display text-base font-bold uppercase tracking-wide text-ink-strong">
               Bateria {battery}{crosses.length === 1 ? ` · ${crosses[0]}` : ''} · Corridas {items[0].numero}–{items[items.length - 1].numero}
             </h3>

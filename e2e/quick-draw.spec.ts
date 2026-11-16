@@ -56,3 +56,10 @@ test('cadastro rápido cria o atleta e o mostra na lista sem recarregar', async 
   await expect(page.getByText('Atleta cadastrado.')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Cabeceiros' }).getByText(name)).toBeVisible();
 });
+
+test('nomes longos não criam scroll horizontal nas etapas do avulso', async ({ page }) => {
+  await loginAs(page, 'userA');
+  await page.goto('/sorteio-avulso');
+  await page.getByRole('region', { name: 'Cabeceiros' }).getByRole('button', { name: 'Selecionar todos' }).click();
+  expect(await hasNoHorizontalScroll(page)).toBe(true);
+});

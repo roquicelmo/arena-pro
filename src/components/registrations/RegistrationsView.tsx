@@ -49,7 +49,7 @@ export function RegistrationsView({ eventId, registrations, athletes }: Props) {
   };
 
   const column = (title: string, items: EventRegistrationItem[], empty: string) => (
-    <section className="rounded-ui border border-line bg-surface">
+    <section className="min-w-0 rounded-ui border border-line bg-surface">
       <h2 className="border-b border-line px-4 py-3 font-display text-lg font-bold uppercase tracking-wide text-ink-strong">
         {title} ({items.length})
       </h2>
@@ -75,11 +75,11 @@ export function RegistrationsView({ eventId, registrations, athletes }: Props) {
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid min-w-0 gap-4 md:grid-cols-2">
         {column('Cabeceiros', cabeceiros, 'Nenhum cabeceiro inscrito.')}
         {column('Pezeiros', pezeiros, 'Nenhum pezeiro inscrito.')}
       </div>
-      <section className="rounded-ui border border-line bg-surface p-4">
+      <section className="min-w-0 rounded-ui border border-line bg-surface p-4">
         <h2 className="font-display text-lg font-bold uppercase tracking-wide text-ink-strong">Inscrever atletas</h2>
         <div className="relative mt-3">
           <Input label="Buscar atleta" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nome, apelido ou cidade" />

@@ -28,7 +28,7 @@ export function ParticipantPicker({ title, athletes, selected, onChange, handica
   };
 
   return (
-    <section className="rounded-ui border border-line bg-surface p-4" aria-label={title}>
+    <section className="min-w-0 rounded-ui border border-line bg-surface p-4" aria-label={title}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-display text-lg font-bold uppercase tracking-wide text-ink-strong">{title} ({selected.size})</h2>
         <span className="flex gap-1">
