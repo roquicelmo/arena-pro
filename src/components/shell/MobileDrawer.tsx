@@ -39,6 +39,10 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
       ref={dialogRef}
       aria-label="Menu principal"
       className="m-0 h-full max-h-none w-[min(18rem,85vw)] max-w-none border-r border-line bg-surface p-0 text-ink shadow-xl backdrop:bg-ink-strong/40"
+      onClose={() => {
+        // Fechamento iniciado pelo navegador: mantém o estado do pai em sincronia.
+        if (open) onClose();
+      }}
       onCancel={(event) => {
         event.preventDefault();
         onClose();

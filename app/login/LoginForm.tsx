@@ -4,10 +4,11 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { authClient } from '../../src/auth/session';
+import { safeNextPath } from '../../src/lib/safeNextPath';
 import { Button, Input } from '../../src/components/ui';
 import { AccessRequestForm } from './AccessRequestForm';
 
-export function LoginForm() {
+export function LoginForm({ next = '/', expired = false }: { next?: string; expired?: boolean }) {
   const router = useRouter();
   const [mode, setMode] = useState<'login' | 'request'>('login');
   const [email, setEmail] = useState('');
@@ -22,7 +23,7 @@ export function LoginForm() {
     setSubmitting(true);
     try {
       await authClient.login({ email: email.trim(), password });
-      router.replace('/');
+      router.replace(safeNextPath(next));
       router.refresh();
     } catch (error) {
       setErrorMessage(error instanceof Error && error.message ? error.message : 'E-mail ou senha inválidos.');
@@ -69,6 +70,13 @@ export function LoginForm() {
                 {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
               </button>
             </div>
+
+            {expired && !errorMessage && (
+              <div role="status" className="flex gap-2 rounded-ui border border-line bg-sand px-3 py-3 text-sm text-ink-strong">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>Sua sessão expirou. Entre novamente para continuar.</span>
+              </div>
+            )}
 
             {errorMessage && (
               <div role="alert" className="flex gap-2 rounded-ui border border-danger/40 bg-danger/10 px-3 py-3 text-sm text-danger">

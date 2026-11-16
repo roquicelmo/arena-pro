@@ -99,3 +99,37 @@ test('pista sem sorteio mostra estado vazio com link para o Sorteio', async ({ p
   await page.getByRole('main').getByRole('link', { name: /ir para o sorteio/i }).click();
   await expect(page).toHaveURL(/\/sorteio$/);
 });
+
+test('sessão expirada na pista avisa que o tempo não foi salvo e vai ao login', async ({ page }) => {
+  await loginAs(page, 'admin');
+  await openEvent(page, TEST_EVENTS.userA);
+  await tab(page, 'Sorteio').click();
+  await page.getByRole('button', { name: /gerar sorteio/i }).click();
+  await expect(page).toHaveURL(/\/pista$/);
+  await page.context().clearCookies();
+  const firstTime = page.getByPlaceholder('0.00').first();
+  await firstTime.fill('6.78');
+  await firstTime.press('Tab');
+  await expect(page.getByText('Sessão expirada — tempos não salvos. Entre novamente.')).toBeVisible();
+  await expect(page).toHaveURL(/\/login\?next=%2Fprovas%2F[^&]+%2Fpista/);
+  await expect(page.getByText('Sua sessão expirou')).toBeVisible();
+});
+
+test('voltar e avançar após edição rápida não perde o tempo salvo (refresh só no histórico)', async ({ page }) => {
+  await loginAs(page, 'admin');
+  await openEvent(page, TEST_EVENTS.userA);
+  await tab(page, 'Sorteio').click();
+  await page.getByRole('button', { name: /gerar sorteio/i }).click();
+  await expect(page).toHaveURL(/\/pista$/);
+  const firstTime = page.getByPlaceholder('0.00').first();
+  await firstTime.fill('5.43');
+  await firstTime.press('Tab');
+  await expect(page.getByText(/tempo salvo/i).first()).toBeVisible();
+  await tab(page, 'Resultado').click();
+  await tab(page, 'Pista').click();
+  const again = page.getByPlaceholder('0.00').first();
+  await again.fill('5.44');
+  await again.press('Tab');
+  await expect(page.getByText(/tempo salvo/i).first()).toBeVisible();
+  await expect(again).toHaveValue(/5[.,]44/);
+});

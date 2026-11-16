@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { RunsTable } from '../../../../../src/components/RunsTable';
 import { toast, useConfirm } from '../../../../../src/components/ui';
-import { apiRequest } from '../../../../../src/lib/apiClient';
+import { apiRequest, SessionExpiredError } from '../../../../../src/lib/apiClient';
 import type { DrawConfig, Run } from '../../../../../src/types/roping';
 import { calculateRunTotal } from '../../../../../src/utils/drawAlgorithm';
 import { trackSave, useFreshServerData } from '../useFreshServerData';
@@ -20,6 +20,7 @@ type SaveStatus = 'idle' | 'saving' | 'saved';
 
 /** Espera entre a última tecla e o PATCH, para não gravar valores parciais fora de ordem. */
 const SAVE_DELAY_MS = 500;
+const SESSION_EXPIRED_ERROR = 'Sessão expirada — tempos não salvos. Entre novamente.';
 const SAVE_ERROR = 'O tempo foi alterado localmente, mas não pôde ser salvo no banco.';
 
 const ntOf = (run: Run, boi: Bull) => Boolean(boi === 1 ? run.times.boi1Nt : boi === 2 ? run.times.boi2Nt : run.times.boi3Nt);
@@ -61,6 +62,9 @@ export function TrackClient({ eventId, runs: initialRuns, config }: TrackClientP
   const [searchTerm, setSearchTerm] = useState('');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const runsRef = useRef(runs);
+  /** Instante do refresh pedido ao montar (0 = nenhum pendente) e da última edição local. */
+  const mountRefreshAt = useRef(0);
+  const lastEditAt = useRef(0);
   const pendingSaves = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; run: () => void }>());
   const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -68,14 +72,19 @@ export function TrackClient({ eventId, runs: initialRuns, config }: TrackClientP
   // local, a menos que ainda haja edição local aguardando gravação.
   if (seed !== initialRuns) {
     setSeed(initialRuns);
-    if (unsaved === 0) setRuns(initialRuns);
+    // Um refresh pedido na montagem, antes da última edição local, traz dados anteriores a ela.
+    const staleMountRefresh = mountRefreshAt.current > 0 && lastEditAt.current > mountRefreshAt.current;
+    if (unsaved === 0 && !staleMountRefresh) setRuns(initialRuns);
+    mountRefreshAt.current = 0;
   }
 
   useEffect(() => {
     runsRef.current = runs;
   }, [runs]);
 
-  useFreshServerData();
+  useFreshServerData(() => {
+    mountRefreshAt.current = Date.now();
+  });
 
   // Ao sair da tela, grava imediatamente o que ainda estava aguardando.
   useEffect(() => {
@@ -103,7 +112,12 @@ export function TrackClient({ eventId, runs: initialRuns, config }: TrackClientP
       await patchTime(runId, boi, timeSeconds, isNt);
     } catch (error) {
       setSaveStatus('idle');
-      toast.error(error instanceof Error ? error.message : SAVE_ERROR);
+      if (error instanceof SessionExpiredError) {
+        // O valor continua na tela, mas não chegou ao banco: o aviso precisa ser claro e durar até o redirecionamento.
+        toast.error(SESSION_EXPIRED_ERROR, { id: 'session-expired', duration: Infinity });
+      } else {
+        toast.error(error instanceof Error ? error.message : SAVE_ERROR);
+      }
       return;
     } finally {
       setUnsaved((count) => Math.max(0, count - 1));
@@ -127,6 +141,7 @@ export function TrackClient({ eventId, runs: initialRuns, config }: TrackClientP
   const onUpdateTime = (runId: string, boi: Bull, value: string, isNt?: boolean) => {
     const currentRun = runsRef.current.find((run) => run.id === runId);
     if (!currentRun) return;
+    lastEditAt.current = Date.now();
     const nextRuns = runsRef.current.map((run) => (run.id === runId ? withTime(run, boi, value, isNt) : run));
     runsRef.current = nextRuns;
     setRuns(nextRuns);
@@ -171,6 +186,7 @@ export function TrackClient({ eventId, runs: initialRuns, config }: TrackClientP
     if (results.some((result) => result.status === 'rejected')) {
       toast.error('Alguns tempos não puderam ser apagados no banco.');
       // O refresh traz o estado real do banco e a ressincronização acima o aplica.
+      mountRefreshAt.current = 0;
       router.refresh();
       return;
     }

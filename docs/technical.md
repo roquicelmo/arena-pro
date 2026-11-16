@@ -46,17 +46,19 @@ npm run db:deploy
 npm run db:seed
 ```
 
-O build de produção é definido em [package.json](../package.json). A página
-principal é renderizada por [app/page.tsx](../app/page.tsx), que reutiliza o
-shell client-side de [src/App.tsx](../src/App.tsx). O layout e os metadados
-ficam em [app/layout.tsx](../app/layout.tsx).
+O build de produção é definido em [package.json](../package.json). A navegação
+usa rotas do App Router: as telas autenticadas ficam em `app/(app)/` (painel,
+provas, atletas, agenda, sorteio avulso, relatórios e usuários) com o shell em
+[app/(app)/layout.tsx](../app/(app)/layout.tsx), e o login em `app/login/`. O
+layout global e os metadados ficam em [app/layout.tsx](../app/layout.tsx).
 
 ## 3. Arquitetura de pastas
 
 ```text
 app/
   layout.tsx                 Layout global, metadata e CSS
-  page.tsx                   Entrada da aplicação
+  login/                     Tela de login e solicitação de acesso
+  (app)/                     Rotas autenticadas (shell, painel, provas, atletas...)
 
 pages/api/
   [...path].ts               Gateway das APIs de domínio
@@ -64,7 +66,7 @@ pages/api/
   auth/callback/[provider].ts
 
 src/
-  App.tsx                    Shell autenticado e navegação da aplicação
+  components/shell/          Shell autenticado: sidebar, drawer mobile e erro de rota
   auth/session.ts            Cliente de login, sessão, logout e solicitação
   components/                Telas e componentes de operação
   server/

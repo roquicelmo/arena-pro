@@ -43,3 +43,14 @@ test('usuário bloqueado com senha correta vê erro no formulário sem erros de 
   await expect(page).toHaveURL(/\/login$/);
   expect(errors()).toEqual([]);
 });
+
+test('login com next relativo volta para a página de origem; next externo é ignorado', async ({ page }) => {
+  for (const [next, expected] of [['/provas', /\/provas$/], ['//evil.com', /localhost:\d+\/$/]] as const) {
+    await page.context().clearCookies();
+    await page.goto(`/login?next=${encodeURIComponent(next)}`);
+    await page.getByLabel('E-mail').fill(TEST_USERS.userA.email);
+    await page.getByLabel('Senha', { exact: true }).fill(TEST_USERS.userA.password);
+    await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+    await expect(page).toHaveURL(expected);
+  }
+});
