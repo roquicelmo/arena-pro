@@ -141,6 +141,16 @@
     color: #ffffff !important;
   }
 
+  /* O âmbar legado agora é terracota (escuro): o texto sobre ele precisa ser claro (AA). */
+  .bg-amber-500,
+  .bg-amber-600,
+  .bg-amber-500.text-white,
+  .bg-amber-600.text-white,
+  .bg-amber-500 .text-white,
+  .bg-amber-600 .text-white {
+    color: var(--color-on-accent) !important;
+  }
+
   .border-slate-900,
   .border-slate-800,
   .border-slate-800\/80,
