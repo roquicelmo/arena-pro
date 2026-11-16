@@ -542,11 +542,24 @@ Regras (command `src/server/services/commands/draws.ts`):
 PATCH /api/runs/:runId/times
 ```
 
+Regras (command [`times.ts`](../src/server/services/commands/times.ts)):
+
+- User lança nas provas que criou; Admin/Manager em todas (`eventScope`);
+- gravação + recálculo ([`computeRunResult`](../src/lib/runResult.ts)) numa transação que trava a linha da
+  prova (`SELECT … FOR UPDATE`, a mesma trava do `generateDraw`);
+- NT é gravado mesmo sem tempo; tempo vazio sem NT apaga o boi;
+- corrida de versão antiga do sorteio → 409; prova finalizada/publicada → 409;
+- na tela, as gravações do mesmo boi saem em série e as pendentes são enviadas com `keepalive` no `pagehide`.
+
 ### 8.9 Resultados
 
 ```text
 POST /api/events/:eventId/results/publish
 ```
+
+Command [`results.ts`](../src/server/services/commands/results.ts) (também usado por `publishResultsAction`):
+só na prova do escopo do usuário; bloqueado com corrida pendente/em andamento; grava `publishedAt` no
+sorteio e na prova (status `FINISHED`) na mesma transação.
 
 ### 8.10 Usuários
 
@@ -1768,33 +1781,19 @@ Componentes:
 - [`draw/DrawReview.tsx`](../src/components/draw/DrawReview.tsx) — corridas por bateria, só leitura;
 - [`registrations/RegistrationsView.tsx`](../src/components/registrations/RegistrationsView.tsx) — inscrições;
 - [`quick-draw/QuickDrawWizard.tsx`](../src/components/quick-draw/QuickDrawWizard.tsx) e `ParticipantPicker.tsx` — sorteio avulso;
-- [`RunsTable.tsx`](../src/components/RunsTable.tsx) — pista (refatorado na fase 4).
+- [`track/TrackBoard.tsx`](../src/components/track/TrackBoard.tsx), `TrackRow.tsx` e `TimeCell.tsx` — pista: corrida atual, estatísticas,
+  busca/bateria, CSV e teclado (Enter avança, N marca NT, Esc desfaz).
 
 ### Locução
 
-[`AnnouncerPage.tsx`](../src/components/AnnouncerPage.tsx)
-
-Exibe:
-
-- corrida atual;
-- próxima corrida;
-- dupla;
-- bateria;
-- rodada;
-- progresso.
+[`announcer/AnnouncerBoard.tsx`](../src/components/announcer/AnnouncerBoard.tsx): corrida atual em destaque
+(primeira sem total e sem NT), próximas 5, últimas 5 e andamento. Atualiza sozinha a cada 3 s com a aba visível
+([`useAutoRefresh`](../src/lib/useAutoRefresh.ts)).
 
 ### Resultados
 
-[`ResultsPage.tsx`](../src/components/ResultsPage.tsx)
-
-Exibe:
-
-- classificação;
-- médias;
-- NTs;
-- pendências;
-- publicação;
-- impressão.
+[`results/ResultsBoard.tsx`](../src/components/results/ResultsBoard.tsx): pódio, classificação por menor média
+([`rankRuns`](../src/lib/ranking.ts)), NT e incompletas no fim, publicação com confirmação e impressão CSS.
 
 ### Usuários
 
