@@ -1,11 +1,11 @@
-# Refatoração de UX e arquitetura — Sorteios Lagoa
+# Refatoração de UX e arquitetura — Arena Pro
 
 > Data: 2026-11-16 · Status: rascunho para aprovação
 > Base de regras de negócio: [project-technical-reference.md](../../project-technical-reference.md)
 
 ## 1. Intenção e porquê
 
-O Sorteios Lagoa já está construído (Next.js 16, Prisma, PostgreSQL, Auth.js) e
+O Arena Pro (antes Sorteios Lagoa) já está construído (Next.js 16, Prisma, PostgreSQL, Auth.js) e
 publicado na Vercel, mas **ainda não está em uso**. Antes de colocá-lo em
 operação nas provas, o objetivo é elevar três coisas:
 
@@ -132,7 +132,7 @@ Referência: mockup `direcao-visual.html`, opção B
   migram (ao final, removida por completo).
 - Cores semânticas adicionais (sucesso/tempo lançado, aviso, erro) derivadas
   na mesma família terrosa — chamada do builder.
-- Metadata: título “Sorteios Lagoa” (hoje está “Team Roping Pro”).
+- Metadata: título “Arena Pro” (era “Team Roping Pro” e depois “Sorteios Lagoa”; renomeado pelo usuário em 2026-11-16).
 
 ## 6. Arquitetura alvo
 
@@ -403,7 +403,7 @@ Referência: mockup `pdf-sorteio-layout.html`, opção A.
 - O componente de PDF é compartilhado com o sorteio avulso (seção 6.8).
 - Caixas de tempo **em branco**; bois que não fazem parte da corrida
   (`numberOfBulls` < 3) aparecem **riscados/hachurados**.
-- **Rodapé**: "Sorteios Lagoa · gerado em dd/mm/aaaa hh:mm" e linha
+- **Rodapé**: "Arena Pro · gerado em dd/mm/aaaa hh:mm" e linha
   "Assinatura do juiz".
 - Estilo: identidade Arena adaptada para impressão — Barlow / Barlow Condensed
   embutidas, números condensados, títulos em caixa alta, **somente preto e

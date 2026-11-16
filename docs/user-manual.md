@@ -1,8 +1,8 @@
-# Sorteios Lagoa — manual do usuário
+# Arena Pro — manual do usuário
 
 ## 1. Para que serve
 
-O Sorteios Lagoa organiza provas de laço em dupla do cadastro ao resultado:
+O Arena Pro organiza provas de laço em dupla do cadastro ao resultado:
 
 1. cadastrar atletas e arenas;
 2. criar uma prova;

@@ -1,4 +1,4 @@
-# Sorteios Lagoa
+# Arena Pro
 
 Aplicação Next.js para gestão de provas de laço em dupla, com Prisma,
 PostgreSQL, autenticação Auth.js, sorteios persistentes, operação de pista e

@@ -19,7 +19,7 @@ const barlowCondensed = Barlow_Condensed({
 });
 
 export const metadata: Metadata = {
-  title: 'Sorteios Lagoa | Gestão de provas e sorteios de laço',
+  title: 'Arena Pro | Gestão de provas e sorteios de laço',
   description: 'Gestão de provas de laço em dupla: inscrições, sorteios, pista, locução e resultados.',
 };
 
