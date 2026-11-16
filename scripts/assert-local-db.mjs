@@ -26,6 +26,18 @@ export function assertLocalDatabaseUrl(url) {
   }
 }
 
+/**
+ * Além de local, exige que o banco seja o de testes (nome terminado em `_test`).
+ * Usado antes de qualquer operação que apague dados.
+ */
+export function assertTestDatabaseUrl(url) {
+  assertLocalDatabaseUrl(url);
+  const databaseName = new URL(url).pathname.replace(/^\//, '');
+  if (!databaseName.endsWith('_test')) {
+    throw new Error(`Recusado: "${databaseName}" não é um banco de testes (nome deve terminar em _test).`);
+  }
+}
+
 const isCli = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (isCli) {

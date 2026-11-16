@@ -25,3 +25,20 @@ test('recusa host que só começa com localhost', () => {
 test('recusa url malformada', () => {
   assert.throws(() => assertLocalDatabaseUrl('isso não é uma url'), /não é local/);
 });
+
+import { assertTestDatabaseUrl } from './assert-local-db.mjs';
+
+test('assertTestDatabaseUrl aceita banco local terminado em _test', () => {
+  assertTestDatabaseUrl('postgresql://postgres:postgres@localhost:54329/sorteios_lagoa_test');
+});
+
+test('assertTestDatabaseUrl recusa banco local de dev', () => {
+  assert.throws(
+    () => assertTestDatabaseUrl('postgresql://postgres:postgres@localhost:54329/sorteios_lagoa_dev'),
+    /banco de testes/,
+  );
+});
+
+test('assertTestDatabaseUrl recusa host remoto mesmo com nome _test', () => {
+  assert.throws(() => assertTestDatabaseUrl('postgres://u:p@db.prisma.io:5432/x_test'), /não é local/);
+});
