@@ -1,16 +1,20 @@
-import { assertLocalDatabaseUrl } from '../scripts/assert-local-db.mjs';
+import { assertTestDatabaseUrl } from '../scripts/assert-local-db.mjs';
 import { PrismaClient, type UserRole } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import { TEST_EVENTS, TEST_USERS } from '../e2e/fixtures/users';
 
+const databaseUrl = process.env.DATABASE_URL;
 try {
-  assertLocalDatabaseUrl(process.env.DATABASE_URL);
+  // O PrismaClient do schema conecta em DATABASE_URL_POOLED; ambas precisam ser o banco local de testes.
+  assertTestDatabaseUrl(databaseUrl);
+  assertTestDatabaseUrl(process.env.DATABASE_URL_POOLED ?? databaseUrl);
 } catch (error) {
   console.error((error as Error).message);
   process.exit(1);
 }
 
-const prisma = new PrismaClient();
+// Conecta explicitamente na URL validada, sem depender de DATABASE_URL_POOLED.
+const prisma = new PrismaClient({ datasourceUrl: databaseUrl });
 
 const ATHLETES_USER_A = [
   { name: 'CABECEIRO A1', head: 3.5, heel: 2, category: 'CABECEIRO' },
