@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Barlow, Barlow_Condensed } from 'next/font/google';
 import '../src/index.css';
+import { ConfirmProvider } from '../src/components/ui/ConfirmDialog';
+import { Toaster } from '../src/components/ui/Toaster';
 
 const barlow = Barlow({
   subsets: ['latin', 'latin-ext'],
@@ -24,7 +26,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="pt-BR" className={`${barlow.variable} ${barlowCondensed.variable}`}>
-      <body>{children}</body>
+      <body>
+        <ConfirmProvider>{children}</ConfirmProvider>
+        <Toaster />
+      </body>
     </html>
   );
 }

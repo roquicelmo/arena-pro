@@ -15,6 +15,8 @@
   --color-ink-muted: #6f604d;
   --color-accent: #b5471b;
   --color-accent-hover: #963914;
+  /* Texto sobre acento/perigo (não usar text-white: a camada legada o sobrescreve). */
+  --color-on-accent: #ffffff;
   --color-accent-soft: #f6e2d6;
   --color-highlight: #f3e3cf;
   --color-success: #3f6b2a;
