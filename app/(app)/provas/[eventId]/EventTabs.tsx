@@ -17,7 +17,7 @@ export function EventTabs({ eventId }: { eventId: string }) {
   const pathname = usePathname();
   const base = `/provas/${eventId}`;
   return (
-    <nav aria-label="Seções da prova" className="-mx-4 mt-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+    <nav aria-label="Seções da prova" className="no-print -mx-4 mt-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
       <ul className="flex min-w-max gap-1 border-b border-line">
         {TABS.map(({ suffix, label }) => {
           const href = base + suffix;
