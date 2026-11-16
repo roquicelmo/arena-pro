@@ -10,5 +10,5 @@ export default async function EventAnnouncerPage({ params }: { params: Promise<{
   const runs = await getLatestDrawRuns(user, event.id);
   if (!runs) notFound();
   if (!runs.length) return <NoDrawState eventId={event.id} />;
-  return <AnnouncerClient event={event} runs={runs} />;
+  return <AnnouncerClient eventId={event.id} runs={runs} />;
 }
