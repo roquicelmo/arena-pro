@@ -1,4 +1,4 @@
-import { BarChart3, CalendarDays, Dices, LayoutDashboard, Trophy, UserCog, Users, type LucideIcon } from 'lucide-react';
+import { BarChart3, CalendarDays, Dices, FolderCog, LayoutDashboard, Trophy, UserCog, Users, type LucideIcon } from 'lucide-react';
 import { MANAGER_ROLES } from '../../server/permissions';
 
 export interface NavItem {
@@ -14,6 +14,7 @@ const ALL_ITEMS: Array<NavItem & { managerOnly?: boolean }> = [
   { href: '/agenda', label: 'Agenda', icon: CalendarDays },
   { href: '/sorteio-avulso', label: 'Sorteio avulso', icon: Dices },
   { href: '/usuarios', label: 'Usuários', icon: UserCog, managerOnly: true },
+  { href: '/cadastros', label: 'Cadastros', icon: FolderCog, managerOnly: true },
   { href: '/relatorios', label: 'Relatórios', icon: BarChart3 },
 ];
 
