@@ -1,10 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { EventsPage, type ArenaOption, type EventFormInput } from '../../../src/components/EventsPage';
-import { toast, useConfirm } from '../../../src/components/ui';
-import { apiRequest } from '../../../src/lib/apiClient';
-import type { EventSummary } from '../../../src/types/events';
+import { EventsPage, type ArenaOption, type EventFormInput } from '../../../../src/components/EventsPage';
+import { toast, useConfirm } from '../../../../src/components/ui';
+import { apiRequest } from '../../../../src/lib/apiClient';
+import type { EventSummary } from '../../../../src/types/events';
 
 interface EventsClientProps {
   events: EventSummary[];

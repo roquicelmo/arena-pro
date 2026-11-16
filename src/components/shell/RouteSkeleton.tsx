@@ -27,3 +27,14 @@ export function RouteSkeleton({ variant = 'cards' }: { variant?: 'cards' | 'list
     </main>
   );
 }
+
+/** Conteúdo de uma aba da prova: o cabeçalho e as abas já vêm do layout da prova. */
+export function EventSectionSkeleton() {
+  return (
+    <div className="flex flex-col gap-3" aria-busy="true" aria-label="Carregando">
+      <Skeleton className="h-24" />
+      <Skeleton className="h-24" />
+      <Skeleton className="h-48" />
+    </div>
+  );
+}

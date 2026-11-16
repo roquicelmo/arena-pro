@@ -219,100 +219,6 @@ export const App: React.FC<AppProps> = ({ initialSession, embedded = false }) =>
     }
   };
 
-  const handleOpenDraw = async (event: EventSummary) => {
-    setAnnouncerEvent(null);
-    setDrawEvent(event);
-    setSelectedEvent(null);
-    setRegistrationEvent(null);
-    setDrawError(null);
-    setActiveSection('draw');
-    setShowDashboard(false);
-
-    if (event.id.startsWith('local-')) {
-      setSelectedCabeceiros([]);
-      setSelectedPezeiros([]);
-      setDrawResults([]);
-      setCurrentStep(1);
-      return;
-    }
-
-    const [registrationsResponse, drawsResponse] = await Promise.all([
-      fetch(`/api/events/${event.id}/registrations`),
-      fetch(`/api/events/${event.id}/draws`),
-    ]);
-    const isRegistrationJson = registrationsResponse.headers.get('content-type')?.includes('application/json');
-    if (!registrationsResponse.ok || !isRegistrationJson) {
-      setDrawError('Não foi possível carregar as inscrições desta prova.');
-      return;
-    }
-
-    const athleteById = new Map(competitors.map((competitor) => [competitor.id, competitor]));
-    const registrations = await registrationsResponse.json() as Array<{ category: 'CABECEIRO' | 'PEZEIRO'; athlete: { id: string } }>;
-    setSelectedCabeceiros(registrations.filter((item) => item.category === 'CABECEIRO').map((item) => athleteById.get(item.athlete.id)).filter((item): item is Competitor => Boolean(item)));
-    setSelectedPezeiros(registrations.filter((item) => item.category === 'PEZEIRO').map((item) => athleteById.get(item.athlete.id)).filter((item): item is Competitor => Boolean(item)));
-
-    if (drawsResponse.ok && drawsResponse.headers.get('content-type')?.includes('application/json')) {
-      const draws = await drawsResponse.json() as Array<{ configuration: DrawConfig; runs: PersistedRun[] }>;
-      const latest = draws[0];
-      if (latest) {
-        setDrawConfig(latest.configuration);
-        setDrawResults(mapPersistedRuns(latest.runs));
-        setCurrentStep(4);
-        return;
-      }
-    }
-    setDrawResults([]);
-    setCurrentStep(3);
-  };
-
-  const handleOpenAnnouncer = async (event: EventSummary) => {
-    setDrawError(null);
-    if (event.id.startsWith('local-')) {
-      setDrawError('A tela do locutor precisa de um sorteio persistido.');
-      return;
-    }
-    const response = await fetch(`/api/events/${event.id}/draws`);
-    if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) {
-      setDrawError('Não foi possível carregar o sorteio desta prova.');
-      return;
-    }
-    const draws = await response.json() as Array<{ runs: PersistedRun[] }>;
-    if (!draws[0]?.runs.length) {
-      setDrawError('Gere o sorteio antes de abrir a tela do locutor.');
-      return;
-    }
-    setDrawResults(mapPersistedRuns(draws[0].runs));
-    setDrawEvent(event);
-    setAnnouncerEvent(event);
-    setSelectedEvent(null);
-    setActiveSection('events');
-    setShowDashboard(false);
-  };
-
-  const handleOpenResults = async (event: EventSummary) => {
-    setDrawError(null);
-    if (event.id.startsWith('local-')) {
-      setDrawError('O resultado final precisa de um sorteio persistido.');
-      return;
-    }
-    const response = await fetch(`/api/events/${event.id}/draws`);
-    if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) {
-      setDrawError('Não foi possível carregar o resultado desta prova.');
-      return;
-    }
-    const draws = await response.json() as Array<{ status: string; runs: PersistedRun[] }>;
-    if (!draws[0]?.runs.length) {
-      setDrawError('Ainda não há corridas geradas para esta prova.');
-      return;
-    }
-    setDrawResults(mapPersistedRuns(draws[0].runs));
-    setResultsPublished(draws[0].status === 'PUBLISHED');
-    setResultsEvent(event);
-    setSelectedEvent(null);
-    setActiveSection('events');
-    setShowDashboard(false);
-  };
-
   const handlePublishResults = async () => {
     if (!resultsEvent) return;
     const response = await fetch(`/api/events/${resultsEvent.id}/results/publish`, { method: 'POST' });
@@ -626,14 +532,7 @@ export const App: React.FC<AppProps> = ({ initialSession, embedded = false }) =>
           ) : registrationEvent ? (
             <RegistrationPage event={registrationEvent} athletes={competitors} onBack={() => setRegistrationEvent(null)} />
           ) : selectedEvent ? (
-            <EventDetailsPage
-              event={selectedEvent}
-              onBack={() => setSelectedEvent(null)}
-              onOpenRegistrations={() => setRegistrationEvent(selectedEvent)}
-              onOpenDraw={() => void handleOpenDraw(selectedEvent)}
-              onOpenAnnouncer={() => void handleOpenAnnouncer(selectedEvent)}
-              onOpenResults={() => void handleOpenResults(selectedEvent)}
-            />
+            <EventDetailsPage event={selectedEvent} baseHref={`/provas/${selectedEvent.id}`} />
           ) : (
             <EventsPage events={events} arenas={arenas} owners={managedUsers} defaultOwnerId={authSession.user.id} canFilterOwners={['ADMIN', 'MANAGER', 'ORGANIZER'].includes(authSession.user.role)} onCreate={handleCreateEvent} onUpdate={handleUpdateEvent} onDelete={handleDeleteEvent} />
           )

@@ -1,9 +1,9 @@
-import { PageHeader } from '../../../src/components/ui';
-import { MANAGER_ROLES } from '../../../src/server/permissions';
-import { listArenas } from '../../../src/server/services/arenas';
-import { listEvents } from '../../../src/server/services/events';
-import { listOwners } from '../../../src/server/services/users';
-import { requireUser } from '../../../src/server/session';
+import { PageHeader } from '../../../../src/components/ui';
+import { MANAGER_ROLES } from '../../../../src/server/permissions';
+import { listArenas } from '../../../../src/server/services/arenas';
+import { listEvents } from '../../../../src/server/services/events';
+import { listOwners } from '../../../../src/server/services/users';
+import { requireUser } from '../../../../src/server/session';
 import { EventsClient } from './EventsClient';
 
 export default async function ProvasPage() {

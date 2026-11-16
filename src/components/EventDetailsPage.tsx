@@ -1,27 +1,16 @@
 import React from 'react';
-import { ArrowLeft, CalendarDays, ClipboardList, FileText, MapPin, Mic2, Trophy, Users } from 'lucide-react';
+import Link from 'next/link';
+import { CalendarDays, ClipboardList, FileText, MapPin, Mic2, Trophy, Users } from 'lucide-react';
 import type { EventSummary } from '../types/events';
 
 interface EventDetailsPageProps {
   event: EventSummary;
-  onBack: () => void;
-  onOpenRegistrations: () => void;
-  onOpenDraw: () => void;
-  onOpenAnnouncer: () => void;
-  onOpenResults: () => void;
+  /** Rota base da prova (`/provas/[id]`); os atalhos levam às sub-rotas. */
+  baseHref: string;
 }
 
-export const EventDetailsPage: React.FC<EventDetailsPageProps> = ({ event, onBack, onOpenRegistrations, onOpenDraw, onOpenAnnouncer, onOpenResults }) => (
+export const EventDetailsPage: React.FC<EventDetailsPageProps> = ({ event, baseHref }) => (
   <section className="space-y-5">
-    <button
-      type="button"
-      onClick={onBack}
-      className="inline-flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-bold text-[#6b788b] transition hover:bg-[#eef3f6] hover:text-[#172036]"
-    >
-      <ArrowLeft className="h-4 w-4" />
-      Voltar para provas
-    </button>
-
     <div className="rounded-2xl border border-[#dfe6ed] bg-white p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -59,18 +48,18 @@ export const EventDetailsPage: React.FC<EventDetailsPageProps> = ({ event, onBac
     </div>
 
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <button type="button" onClick={onOpenRegistrations} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#eef3f6] px-4 py-3 text-sm font-bold text-[#172036] transition hover:bg-[#e3eaf0]">
+      <Link href={`${baseHref}/inscricoes`} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#eef3f6] px-4 py-3 text-sm font-bold text-[#172036] transition hover:bg-[#e3eaf0]">
         <ClipboardList className="h-4 w-4" /> Inscrições
-      </button>
-      <button type="button" onClick={onOpenDraw} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#218f83] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#176f67]">
+      </Link>
+      <Link href={`${baseHref}/sorteio`} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#218f83] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#176f67]">
         <Trophy className="h-4 w-4" /> Sorteio e pista
-      </button>
-      <button type="button" onClick={onOpenAnnouncer} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#e87900] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#cf6900]">
+      </Link>
+      <Link href={`${baseHref}/locucao`} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#e87900] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#cf6900]">
         <Mic2 className="h-4 w-4" /> Tela do locutor
-      </button>
-      <button type="button" onClick={onOpenResults} className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#dfe6ed] bg-white px-4 py-3 text-sm font-bold text-[#2f3b4f] transition hover:bg-[#eef3f6]">
+      </Link>
+      <Link href={`${baseHref}/resultado`} className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#dfe6ed] bg-white px-4 py-3 text-sm font-bold text-[#2f3b4f] transition hover:bg-[#eef3f6]">
         <FileText className="h-4 w-4" /> Resultado final
-      </button>
+      </Link>
     </div>
   </section>
 );

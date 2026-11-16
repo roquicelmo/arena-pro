@@ -6,7 +6,7 @@ import type { Run } from '../types/roping';
 interface AnnouncerPageProps {
   event: EventSummary;
   runs: Run[];
-  onBack: () => void;
+  onBack?: () => void;
   onOpenRun: (run: Run) => void;
 }
 
@@ -19,9 +19,11 @@ export const AnnouncerPage: React.FC<AnnouncerPageProps> = ({ event, runs, onBac
 
   return (
     <section className="space-y-5">
-      <button type="button" onClick={onBack} className="inline-flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-bold text-[#6b788b] transition hover:bg-[#eef3f6] hover:text-[#172036]">
-        <ArrowLeft className="h-4 w-4" /> Voltar para detalhes
-      </button>
+      {onBack && (
+        <button type="button" onClick={onBack} className="inline-flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-bold text-[#6b788b] transition hover:bg-[#eef3f6] hover:text-[#172036]">
+          <ArrowLeft className="h-4 w-4" /> Voltar para detalhes
+        </button>
+      )}
 
       <div className="rounded-2xl bg-[#111a31] p-6 text-white shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

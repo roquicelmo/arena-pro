@@ -8,10 +8,12 @@ type RegistrationRole = 'CABECEIRO' | 'PEZEIRO';
 interface RegistrationPageProps {
   event: EventSummary;
   athletes: Competitor[];
-  onBack: () => void;
+  onBack?: () => void;
+  /** Chamado depois de uma inscrição adicionada ou removida com sucesso no banco. */
+  onChanged?: () => void;
 }
 
-export const RegistrationPage: React.FC<RegistrationPageProps> = ({ event, athletes, onBack }) => {
+export const RegistrationPage: React.FC<RegistrationPageProps> = ({ event, athletes, onBack, onChanged }) => {
   const [role, setRole] = useState<RegistrationRole>('CABECEIRO');
   const [athleteId, setAthleteId] = useState('');
   const [headIds, setHeadIds] = useState(() => athletes.slice(0, 18).map((athlete) => athlete.id));
@@ -83,6 +85,7 @@ export const RegistrationPage: React.FC<RegistrationPageProps> = ({ event, athle
       }
       const registration = await response.json() as { id: string };
       setRegistrationIds((current) => ({ ...current, [athleteId]: registration.id }));
+      onChanged?.();
     }
     if (role === 'CABECEIRO') setHeadIds((current) => [...current, athleteId]);
     else setHeelIds((current) => [...current, athleteId]);
@@ -108,6 +111,7 @@ export const RegistrationPage: React.FC<RegistrationPageProps> = ({ event, athle
         delete next[athlete.id];
         return next;
       });
+      onChanged?.();
     }
     if (athleteRole === 'CABECEIRO') setHeadIds((current) => current.filter((id) => id !== athlete.id));
     else setHeelIds((current) => current.filter((id) => id !== athlete.id));
@@ -134,9 +138,11 @@ export const RegistrationPage: React.FC<RegistrationPageProps> = ({ event, athle
 
   return (
     <section className="space-y-5">
-      <button type="button" onClick={onBack} className="inline-flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-bold text-[#6b788b] transition hover:bg-[#eef3f6] hover:text-[#172036]">
-        <ArrowLeft className="h-4 w-4" /> Voltar para detalhes
-      </button>
+      {onBack && (
+        <button type="button" onClick={onBack} className="inline-flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-bold text-[#6b788b] transition hover:bg-[#eef3f6] hover:text-[#172036]">
+          <ArrowLeft className="h-4 w-4" /> Voltar para detalhes
+        </button>
+      )}
 
       <div className="rounded-2xl border border-[#dfe6ed] bg-white p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
