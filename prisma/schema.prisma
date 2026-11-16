@@ -56,32 +56,33 @@ enum AccessRequestStatus {
 }
 
 model User {
-  id           String      @id @default(cuid())
-  name         String?
-  email        String      @unique
-  emailVerified DateTime?
-  image        String?
-  passwordHash String?
-  role         UserRole    @default(ORGANIZER)
-  active       Boolean     @default(true)
-  provisional  Boolean     @default(false)
+  id              String    @id @default(cuid())
+  name            String?
+  email           String    @unique
+  emailVerified   DateTime?
+  image           String?
+  passwordHash    String?
+  role            UserRole  @default(ORGANIZER)
+  active          Boolean   @default(true)
+  provisional     Boolean   @default(false)
   accessExpiresAt DateTime?
-  managedById   String?
-  lastLoginAt  DateTime?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  managedById     String?
+  lastLoginAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  createdEvents Event[]    @relation("EventCreator")
-  auditLogs     AuditLog[]
-  recordedTimes RunTime[]  @relation("RecordedTimes")
-  accounts      Account[]
-  sessions      Session[]
-  managedUsers  User[]      @relation("UserManager")
-  managedBy     User?       @relation("UserManager", fields: [managedById], references: [id], onDelete: SetNull)
-  ownedAthletes Athlete[]   @relation("AthleteOwner")
-  ownedArenas   Arena[]     @relation("ArenaOwner")
-  athleteShares AthleteShare[] @relation("AthleteShares")
-  arenaShares   ArenaShare[]   @relation("ArenaShares")
+  createdEvents          Event[]         @relation("EventCreator")
+  auditLogs              AuditLog[]
+  recordedTimes          RunTime[]       @relation("RecordedTimes")
+  accounts               Account[]
+  sessions               Session[]
+  managedUsers           User[]          @relation("UserManager")
+  managedBy              User?           @relation("UserManager", fields: [managedById], references: [id], onDelete: SetNull)
+  ownedAthletes          Athlete[]       @relation("AthleteOwner")
+  ownedArenas            Arena[]         @relation("ArenaOwner")
+  athleteShares          AthleteShare[]  @relation("AthleteShares")
+  athleteNotes           AthleteNote[]   @relation("AthleteNotes")
+  arenaShares            ArenaShare[]    @relation("ArenaShares")
   reviewedAccessRequests AccessRequest[] @relation("AccessRequestReviewer")
 
   @@index([role, active])
@@ -152,14 +153,17 @@ model Arena {
   address   String?
   active    Boolean  @default(true)
   ownerId   String?
+  cityCode  Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  events Event[]
-  owner  User? @relation("ArenaOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  shares ArenaShare[]
+  events       Event[]
+  owner        User?         @relation("ArenaOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  shares       ArenaShare[]
+  municipality Municipality? @relation(fields: [cityCode], references: [code])
 
   @@index([city, state])
+  @@index([cityCode])
   @@index([ownerId])
 }
 
@@ -175,8 +179,8 @@ model Event {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
-  arena         Arena          @relation(fields: [arenaId], references: [id])
-  createdBy     User           @relation("EventCreator", fields: [createdById], references: [id])
+  arena         Arena               @relation(fields: [arenaId], references: [id])
+  createdBy     User                @relation("EventCreator", fields: [createdById], references: [id])
   registrations EventRegistration[]
   draws         Draw[]
   auditLogs     AuditLog[]
@@ -187,42 +191,48 @@ model Event {
 }
 
 model Athlete {
-  id              String   @id @default(cuid())
-  registrationNo  String?  @unique
-  name            String
-  nickname        String?
-  phone           String?
-  email           String?
-  city            String?
-  state           String?  @db.VarChar(2)
-  headHandicap    Decimal  @db.Decimal(3, 1)
-  heelHandicap    Decimal  @db.Decimal(3, 1)
-  active          Boolean  @default(true)
-  ownerId         String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  registrationNo String?  @unique
+  name           String
+  nickname       String?
+  phone          String?
+  email          String?
+  city           String?
+  state          String?  @db.VarChar(2)
+  cityCode       Int?
+  club           String?
+  document       String?
+  headHandicap   Decimal  @db.Decimal(3, 1)
+  heelHandicap   Decimal  @db.Decimal(3, 1)
+  active         Boolean  @default(true)
+  ownerId        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  registrations   EventRegistration[]
-  headRuns        Run[]    @relation("HeadAthlete")
-  heelRuns        Run[]    @relation("HeelAthlete")
-  owner           User?    @relation("AthleteOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  shares          AthleteShare[]
+  registrations EventRegistration[]
+  headRuns      Run[]               @relation("HeadAthlete")
+  heelRuns      Run[]               @relation("HeelAthlete")
+  owner         User?               @relation("AthleteOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  shares        AthleteShare[]
+  municipality  Municipality?       @relation(fields: [cityCode], references: [code])
+  notes         AthleteNote[]       @relation("AthleteNotes")
 
   @@index([name])
   @@index([city, state])
+  @@index([cityCode])
   @@index([active])
   @@index([ownerId])
 }
 
 model EventRegistration {
-  id                 String             @id @default(cuid())
-  eventId            String
-  athleteId          String
-  category           String?
-  status             RegistrationStatus @default(ACTIVE)
-  paymentStatus      String?
-  registeredAt       DateTime           @default(now())
-  cancelledAt        DateTime?
+  id            String             @id @default(cuid())
+  eventId       String
+  athleteId     String
+  category      String?
+  status        RegistrationStatus @default(ACTIVE)
+  paymentStatus String?
+  registeredAt  DateTime           @default(now())
+  cancelledAt   DateTime?
 
   event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
   athlete Athlete @relation(fields: [athleteId], references: [id])
@@ -232,16 +242,16 @@ model EventRegistration {
 }
 
 model Draw {
-  id               String     @id @default(cuid())
-  eventId          String
-  version          Int        @default(1)
-  status           DrawStatus  @default(DRAFT)
-  configuration    Json
-  generatedById    String?
-  generatedAt      DateTime?
-  publishedAt      DateTime?
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+  id            String     @id @default(cuid())
+  eventId       String
+  version       Int        @default(1)
+  status        DrawStatus @default(DRAFT)
+  configuration Json
+  generatedById String?
+  generatedAt   DateTime?
+  publishedAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
   runs  Run[]
@@ -251,28 +261,28 @@ model Draw {
 }
 
 model Run {
-  id              String     @id @default(cuid())
-  drawId          String
-  runNumber       Int
-  phase           Int
-  round           Int
-  battery         Int
-  headAthleteId   String
-  heelAthleteId   String
-  headGroup       String?
-  heelGroup       String?
+  id               String    @id @default(cuid())
+  drawId           String
+  runNumber        Int
+  phase            Int
+  round            Int
+  battery          Int
+  headAthleteId    String
+  heelAthleteId    String
+  headGroup        String?
+  heelGroup        String?
   combinedHandicap Decimal   @db.Decimal(4, 1)
-  numberOfBulls   Int        @default(1)
-  status          RunStatus  @default(PENDING)
-  totalTime       Decimal?   @db.Decimal(8, 2)
-  averageTime     Decimal?   @db.Decimal(8, 2)
-  isNt            Boolean    @default(false)
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  numberOfBulls    Int       @default(1)
+  status           RunStatus @default(PENDING)
+  totalTime        Decimal?  @db.Decimal(8, 2)
+  averageTime      Decimal?  @db.Decimal(8, 2)
+  isNt             Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  draw        Draw     @relation(fields: [drawId], references: [id], onDelete: Cascade)
-  headAthlete Athlete  @relation("HeadAthlete", fields: [headAthleteId], references: [id])
-  heelAthlete Athlete  @relation("HeelAthlete", fields: [heelAthleteId], references: [id])
+  draw        Draw      @relation(fields: [drawId], references: [id], onDelete: Cascade)
+  headAthlete Athlete   @relation("HeadAthlete", fields: [headAthleteId], references: [id])
+  heelAthlete Athlete   @relation("HeelAthlete", fields: [heelAthleteId], references: [id])
   times       RunTime[]
 
   @@unique([drawId, runNumber])
@@ -335,5 +345,39 @@ model ArenaShare {
   user      User     @relation("ArenaShares", fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([arenaId, userId])
+  @@index([userId])
+}
+
+model BrState {
+  code Int    @id
+  uf   String @unique @db.VarChar(2)
+  name String
+
+  municipalities Municipality[]
+}
+
+model Municipality {
+  code Int    @id
+  name String
+  uf   String @db.VarChar(2)
+
+  state    BrState   @relation(fields: [uf], references: [uf])
+  athletes Athlete[]
+  arenas   Arena[]
+
+  @@index([uf, name])
+}
+
+model AthleteNote {
+  athleteId String
+  userId    String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  athlete Athlete @relation("AthleteNotes", fields: [athleteId], references: [id], onDelete: Cascade)
+  user    User    @relation("AthleteNotes", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([athleteId, userId])
   @@index([userId])
 }
