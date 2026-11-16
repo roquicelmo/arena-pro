@@ -1,10 +1,10 @@
-import { Dashboard } from '../../src/components/Dashboard';
-import { PageHeader } from '../../src/components/ui';
-import { MANAGER_ROLES } from '../../src/server/permissions';
-import { listAthletes } from '../../src/server/services/athletes';
-import { listEvents } from '../../src/server/services/events';
-import { listOwners } from '../../src/server/services/users';
-import { requireUser } from '../../src/server/session';
+import { Dashboard } from '../../../src/components/Dashboard';
+import { PageHeader } from '../../../src/components/ui';
+import { MANAGER_ROLES } from '../../../src/server/permissions';
+import { listAthletes } from '../../../src/server/services/athletes';
+import { listEvents } from '../../../src/server/services/events';
+import { listOwners } from '../../../src/server/services/users';
+import { requireUser } from '../../../src/server/session';
 
 export default async function HomePage() {
   const user = await requireUser();
