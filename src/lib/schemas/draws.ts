@@ -22,3 +22,20 @@ export const quickDrawSchema = z.object({
 
 export type RegistrationInput = z.infer<typeof registrationSchema>;
 export type QuickDrawInput = z.infer<typeof quickDrawSchema>;
+
+/** Corpo do PDF do sorteio avulso: cabeçalho + corridas já sorteadas (sem re-sortear). */
+export const quickSumulaSchema = z.object({
+  title: z.string().trim().min(2, 'Informe o título do sorteio.').max(120),
+  date: z.union([z.literal(''), z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Informe uma data válida.')]).optional(),
+  place: z.string().trim().max(120).optional(),
+  runs: z.array(z.object({
+    numero: z.number().int().min(1),
+    bateria: z.number().int().min(1),
+    cabeceiroId: z.string().min(1),
+    pezeiroId: z.string().min(1),
+    cabeceiroGrupo: z.string().max(4),
+    pezeiroGrupo: z.string().max(4),
+  })).min(1).max(2000),
+});
+
+export type QuickSumulaInput = z.infer<typeof quickSumulaSchema>;

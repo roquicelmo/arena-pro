@@ -60,17 +60,16 @@ test('texto sobre superfícies de destaque mantém contraste AA na pista da prov
   for (const item of results) expect(item.ratio, item.text).toBeGreaterThanOrEqual(4.5);
 });
 
-// Superfícies laranja/âmbar antigas do RunsTable no sorteio avulso (etapa de corridas).
+// Botões de destaque do sorteio avulso (etapa de revisão).
 test('texto sobre superfícies de destaque mantém contraste AA no sorteio avulso', async ({ page }) => {
   await loginAs(page, 'userA');
   await page.goto('/sorteio-avulso');
-  await page.getByRole('button', { name: /adicionar todos/i }).click();
-  await page.getByRole('button', { name: /avançar para cabeceiros/i }).click();
-  await page.getByRole('button', { name: /adicionar todos/i }).click();
-  await page.getByRole('button', { name: /avançar para configuração/i }).click();
-  await page.getByRole('button', { name: /gerar sorteio oficial/i }).click();
-  await expect(page.getByPlaceholder('0.00').first()).toBeVisible();
-  const results = await contrastOf(page, '.bg-accent, .bg-amber-500, .bg-amber-600, [class*="bg-[#e87900]"]');
+  await page.getByRole('region', { name: 'Cabeceiros' }).getByRole('button', { name: 'Selecionar todos' }).click();
+  await page.getByRole('region', { name: 'Pezeiros' }).getByRole('button', { name: 'Selecionar todos' }).click();
+  await page.getByRole('button', { name: 'Avançar para configuração' }).click();
+  await page.getByRole('button', { name: 'Gerar sorteio' }).click();
+  await expect(page.getByRole('button', { name: 'Baixar PDF' })).toBeVisible();
+  const results = await contrastOf(page, '.bg-accent');
   expect(results.length).toBeGreaterThan(0);
   for (const item of results) expect(item.ratio, item.text).toBeGreaterThanOrEqual(4.5);
 });

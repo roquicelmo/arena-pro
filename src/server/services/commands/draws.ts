@@ -2,7 +2,8 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../prisma';
 import { toCompetitor } from '../../../lib/mappers';
 import type { DrawConfig, Run } from '../../../types/roping';
-import { executeGroupCrossDraw } from '../../../utils/drawAlgorithm';
+import { calculateBois, executeGroupCrossDraw } from '../../../utils/drawAlgorithm';
+import type { SumulaRun } from '../../../lib/sumula';
 import { DomainError } from '../errors';
 import { accessScope } from '../scope';
 import type { ScopeUser } from './owner';
@@ -107,4 +108,33 @@ export async function quickDraw(user: ScopeUser, input: { cabeceiroIds: string[]
   const { runs } = executeGroupCrossDraw(cabeceiros, pezeiros, input.config);
   if (!runs.length) throw new DomainError('Não foi possível gerar corridas válidas com estes atletas.', { status: 422 });
   return runs;
+}
+
+/**
+ * Corridas do PDF do sorteio avulso: confere que todos os atletas estão no escopo
+ * do usuário e relê nomes e handicaps do banco (não confia no que veio da tela).
+ */
+export async function buildQuickSumula(
+  user: ScopeUser,
+  runs: Array<{ numero: number; bateria: number; cabeceiroId: string; pezeiroId: string; cabeceiroGrupo: string; pezeiroGrupo: string }>,
+): Promise<SumulaRun[]> {
+  const ids = [...new Set(runs.flatMap((r) => [r.cabeceiroId, r.pezeiroId]))];
+  const athletes = await prisma.athlete.findMany({ where: { id: { in: ids }, active: true, ...accessScope(user) }, select: athleteSelect });
+  const byId = new Map(athletes.map((a) => [a.id, a]));
+  if (ids.some((id) => !byId.has(id))) throw new DomainError('Atleta não encontrado ou inativo.', { status: 404 });
+  return runs.map((r) => {
+    const cab = byId.get(r.cabeceiroId)!;
+    const pe = byId.get(r.pezeiroId)!;
+    const shc = Number((Number(cab.headHandicap) + Number(pe.heelHandicap)).toFixed(1));
+    return {
+      numero: r.numero,
+      bateria: r.bateria,
+      cabeceiro: { nome: cab.name, hc: Number(cab.headHandicap) },
+      pezeiro: { nome: pe.name, hc: Number(pe.heelHandicap) },
+      grupoCab: r.cabeceiroGrupo,
+      grupoPe: r.pezeiroGrupo,
+      shc,
+      bois: calculateBois(shc),
+    };
+  });
 }
