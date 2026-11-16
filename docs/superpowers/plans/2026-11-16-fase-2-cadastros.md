@@ -2,27 +2,30 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Migrar as telas de atletas, arenas, provas e agenda (e o painel, que lê os mesmos dados) para Server Components com mutações por Server Actions, apoiadas em services de domínio compartilhados com os handlers `/api`. Os componentes antigos dão lugar a componentes novos na identidade Arena, com skeletons, empty states, diálogos de confirmação e toasts. Entra também o **manejo de cadastros** (spec 6.9): Admin e Manager compartilham atletas e arenas com vários usuários, e os seletores de proprietário saem dos modais.
+**Goal:** Migrar as telas de atletas, arenas, provas e agenda (e o painel, que lê os mesmos dados) para Server Components com mutações por Server Actions, apoiadas em services de domínio compartilhados com os handlers `/api`. Os componentes antigos dão lugar a componentes novos na identidade Arena, com skeletons, empty states, diálogos de confirmação e toasts. Entra também o **manejo de cadastros** (spec 6.9): Admin e Manager compartilham atletas e arenas com vários usuários, e os seletores de proprietário saem dos modais. O cadastro do atleta ganha clube, notas privadas, cidades oficiais do IBGE e aviso de duplicados (spec 6.10).
 
 **Architecture:** As regras de escrita (ownership, dono pedido por gerente, deduplicação de arena, criação de prova com arena nova em transação) passam a morar em *commands* em `src/server/services/commands/*`, sem `server-only`, para que tanto as Server Actions quanto os handlers `/api` possam importá-los. Cada Server Action (`src/server/actions/*`, `'use server'`) passa por um helper único, `runAction`: `requireActionUser` → `schema.safeParse` (Zod) → command → `revalidatePath`, com retorno `ActionResult<T>`. No cliente, o hook `useAction` cuida do estado pendente, dos erros por campo, dos toasts e da sessão expirada. Os filtros por dono passam para a URL (`?dono=`) e são aplicados no servidor pelos services de leitura. Atletas e arenas ganham tabelas de vínculo (`AthleteShare`, `ArenaShare`, migration aditiva aprovada pelo usuário), e o escopo deles passa a ser "dono ou compartilhado" (`accessScope`); o escopo estrito de dono (`ownerScope`) continua valendo para desativar e para provas.
 
 **Tech Stack:** Next.js 16.4 App Router (Server Actions, `revalidatePath`), React 19.2, Prisma 6.19, Zod 4.6, Tailwind 4 (tokens Arena), sonner, Vitest + Testing Library, Playwright.
 
-**Spec:** [docs/superpowers/specs/2026-11-16-refatoracao-ux-arquitetura-design.md](../specs/2026-11-16-refatoracao-ux-arquitetura-design.md), seções 5, 6.3, 6.5, 6.9 e 9 (fase 2). Regras de negócio: [docs/project-technical-reference.md](../../project-technical-reference.md).
+**Spec:** [docs/superpowers/specs/2026-11-16-refatoracao-ux-arquitetura-design.md](../specs/2026-11-16-refatoracao-ux-arquitetura-design.md), seções 5, 6.3, 6.5, 6.9, 6.10 e 9 (fase 2). Regras de negócio: [docs/project-technical-reference.md](../../project-technical-reference.md).
 **Fase anterior:** [2026-11-16-fase-1-shell-e-rotas.md](2026-11-16-fase-1-shell-e-rotas.md), no PR roquicelmo/rc-horse-sports#2.
 
 ## Global Constraints
 
 - **Branch:** `refactor/fase-2-cadastros`, criado a partir de `refactor/fase-1-rotas` (fase 1, ainda não mesclada). O PR aponta para `main` se o #2 já tiver sido mesclado; senão, para `refactor/fase-1-rotas`.
-- **Schema:** só a migration aditiva do compartilhamento (Task 2), aprovada pelo usuário. Nenhuma outra mudança no schema; nenhuma migration existente é alterada. Nunca `prisma migrate reset` nem `migrate dev` contra banco com dados: a migration é gerada por `prisma migrate diff` e aplicada com `npm run db:local:migrate` (dev) e `npm run db:test:reset` (testes).
+- **Schema:** só as migrations aditivas do compartilhamento (Task 2) e do cadastro do atleta com localidades IBGE (Task 3), aprovadas pelo usuário. Nenhuma outra mudança no schema; nenhuma migration existente é alterada. Nunca `prisma migrate reset` nem `migrate dev` contra banco com dados: a migration é gerada por `prisma migrate diff` e aplicada com `npm run db:local:migrate` (dev) e `npm run db:test:reset` (testes).
 - **Endpoints `/api/*` continuam funcionando.** Os handlers de POST/PATCH/DELETE de atletas, arenas e provas passam a delegar aos commands; o JSON de resposta e os status HTTP de sucesso não mudam. Os GETs não mudam.
 - **Ownership no servidor, em todo command:**
-  - **Atletas e arenas:** User lê, usa e edita os próprios e os compartilhados com ele (`accessScope`); desativar exige ser o dono ou gerente (`canAccessOwnerData`). Usuário compartilhado que tenta desativar recebe "Só o proprietário ou um gerente pode remover este cadastro." (403).
+  - **Atletas e arenas:** User vê e usa os próprios e os compartilhados com ele (`accessScope`). **Editar e desativar** exigem ser o dono ou gerente (`canAccessOwnerData`); usuário só compartilhado recebe "Só o proprietário ou um gerente pode alterar este cadastro." (403).
+  - **Notas do atleta** são privadas: cada usuário lê e grava só as próprias (`AthleteNote` por atleta × usuário), em qualquer atleta do seu `accessScope`.
   - **Provas:** um único dono (`createdById`, `eventScope`); não são compartilhadas.
   - Um `ownerId` enviado por User é ignorado (vira o próprio id). Admin, Manager e o legado Organizer (`MANAGER_ROLES`) alteram qualquer registro.
-  - **Os formulários de cadastro não têm seletor de proprietário:** o cadastro nasce do usuário que o criou. Atribuir a outros usuários é feito só na tela `/cadastros` (Task 8). A API continua aceitando `ownerId` de gerente, validado (usuário existente e ativo), por compatibilidade.
+  - **Os formulários de cadastro não têm seletor de proprietário:** o cadastro nasce do usuário que o criou. Atribuir a outros usuários é feito só na tela `/cadastros` (Task 9). A API continua aceitando `ownerId` de gerente, validado (usuário existente e ativo), por compatibilidade.
   - Só `MANAGER_ROLES` compartilham, removem compartilhamento e alteram o responsável de provas.
   - Registro inexistente, inativo ou fora do escopo responde "não encontrado" (404 na API), sem revelar existência.
+- **Localidades:** cidade e UF vêm das tabelas locais `BrState`/`Municipality` (código IBGE). O sistema nunca chama a API do IBGE em runtime nem no build; ela só é usada pelo script que gera a migration. Formulários começam em UF **GO** e cidade **Caiapônia** (código lido da tabela, nunca fixado no código), ambos alteráveis. Atleta e arena gravam `cityCode` e também `city`/`state` em texto, copiados do município.
+- **Sem CPF:** a coluna `document` existe, sem campo na tela e sem uso.
 - **Papéis:** sempre `OPERATOR_ROLES`/`MANAGER_ROLES`/`ownerScope` de `src/server/permissions.ts` e `src/server/services/scope.ts`. Nenhum array de papéis literal e nenhum `role === 'USER'` em código novo ou tocado.
 - **Contrato da Server Action:** retorno `{ ok: true, data } | { ok: false, message, fieldErrors?, code? }`. Server Actions nunca lançam para o cliente; erro inesperado vira mensagem genérica e `console.error` no servidor.
 - **Regra de feedback (resolve o toast duplicado):**
@@ -40,11 +43,11 @@
 
 ## Review Focus
 
-1. **Erro de validação ou de servidor no meio do cadastro** (nome com 1 letra, UF inválida, arena duplicada) → o diálogo continua aberto com tudo o que foi digitado, o erro aparece junto do campo e nenhum toast duplica a mensagem. Testes nas Tasks 5 e 6.
-2. **Sessão expirada com o formulário aberto** → ao salvar, aviso "Sua sessão expirou" e ida para `/login?next=/atletas&reason=expired`, sem tela quebrada. Teste na Task 5.
-3. **User adulterando a chamada** (id de atleta, arena ou prova de outro usuário, `ownerId` alheio, desativar um cadastro só compartilhado com ele, ou chamar uma action de compartilhamento) → "não encontrado", recusa ou o dono vira o próprio User; nada é alterado. Testes nas Tasks 3 e 8.
-4. **Duplo clique em Salvar** → um único registro criado; o botão fica desabilitado e o hook ignora a segunda chamada enquanto a primeira está pendente. Testes na Task 1 (hook) e na Task 5 (e2e).
-5. **Celular a 375px com nome longo** (atleta ou prova com 60+ caracteres) → sem scroll horizontal, nome truncado ou quebrado, diálogo inteiro visível. Testes nas Tasks 5 e 6.
+1. **Erro de validação ou de servidor no meio do cadastro** (nome com 1 letra, cidade fora da lista, arena duplicada) → o diálogo continua aberto com tudo o que foi digitado, o erro aparece junto do campo e nenhum toast duplica a mensagem. Testes nas Tasks 6 e 7.
+2. **Sessão expirada com o formulário aberto** → ao salvar, aviso "Sua sessão expirou" e ida para `/login?next=/atletas&reason=expired`, sem tela quebrada. Teste na Task 6.
+3. **User adulterando a chamada** (id de atleta, arena ou prova de outro usuário, `ownerId` alheio, editar ou desativar um cadastro só compartilhado com ele, ou chamar uma action de compartilhamento) → "não encontrado", recusa ou o dono vira o próprio User; nada é alterado. Testes nas Tasks 4 e 9.
+4. **Duplo clique em Salvar** → um único registro criado; o botão fica desabilitado e o hook ignora a segunda chamada enquanto a primeira está pendente. Testes na Task 1 (hook) e na Task 6 (e2e).
+5. **Celular a 375px com nome longo** (atleta ou prova com 60+ caracteres) → sem scroll horizontal, nome truncado ou quebrado, diálogo inteiro visível. Testes nas Tasks 6 e 7.
 
 ---
 
@@ -217,7 +220,70 @@ Expected: verde. O `globalSetup` recria o banco de testes com a migration nova.
 
 ---
 
-### Task 3: Commands de atletas, arenas e provas; handlers `/api` delegam
+### Task 3: Localidades IBGE, clube, documento e notas privadas (migration aditiva)
+
+**Files:**
+- Create: `scripts/generate-ibge-localities.mjs` (busca UFs e municípios na API de localidades do IBGE e escreve os `INSERT`s; roda uma vez, à mão; não é chamado por build, teste ou runtime)
+- Modify: `prisma/schema.prisma`
+- Create: `prisma/migrations/20261116130000_add_localities_club_notes/migration.sql`
+- Create: `src/lib/text.ts` e `src/lib/text.test.ts`
+- Create: `src/server/services/localities.ts` (sem `server-only`)
+- Modify: `prisma/seed-e2e.ts` e `prisma/seed.ts` (preenchem `cityCode`)
+
+**Interfaces:**
+- Consumes: os modelos da Task 2.
+- Produces:
+  - Prisma (todas as colunas novas são opcionais):
+    - `BrState { code Int @id; uf String @unique @db.VarChar(2); name String; municipalities Municipality[] }`
+    - `Municipality { code Int @id; name String; uf String @db.VarChar(2); state BrState @relation(fields: [uf], references: [uf]); athletes Athlete[]; arenas Arena[]; @@index([uf, name]) }`
+    - `Athlete` ganha `club String?`, `document String?`, `cityCode Int?` (relação `municipality`, `@@index([cityCode])`) e `notes AthleteNote[]`.
+    - `Arena` ganha `cityCode Int?` (relação `municipality`, `@@index([cityCode])`).
+    - `AthleteNote { athleteId String; userId String; body String; createdAt DateTime @default(now()); updatedAt DateTime @updatedAt; @@id([athleteId, userId]); @@index([userId]) }`, com `onDelete: Cascade` para atleta e usuário (relação `"AthleteNotes"`).
+  - Migration, nesta ordem:
+    1. DDL gerado por `prisma migrate diff` (como na Task 2).
+    2. `INSERT`s das 27 UFs e de todos os municípios devolvidos pelo IBGE (cerca de 5.570), gerados pelo script a partir de `https://servicodados.ibge.gov.br/api/v1/localidades/estados` e `https://servicodados.ibge.gov.br/api/v1/localidades/municipios`.
+    3. Backfill: `UPDATE` de `Athlete` e `Arena`, preenchendo `cityCode` quando o nome normalizado (minúsculas, sem acento via `translate`, espaços aparados) e a UF (`upper(trim(state))`) casam com exatamente um município. Os que não casam ficam com `cityCode` nulo; com `city` preenchido, a interface os mostra como "Cidade a revisar".
+  - `normalizeName(value: string): string`: NFD, remove diacríticos, minúsculas, colapsa espaços, `trim`.
+  - `localities.ts`:
+    - `DEFAULT_UF = 'GO'` e `DEFAULT_CITY_NAME = 'Caiapônia'`.
+    - `listStates(): Promise<Array<{ uf: string; name: string }>>`, por nome.
+    - `listMunicipalities(uf: string): Promise<Array<{ code: number; name: string }>>`, por nome.
+    - `findMunicipality(code: number): Promise<{ code: number; name: string; uf: string } | null>`.
+    - `getDefaultCity(): Promise<{ code: number; name: string; uf: string }>`: procura por nome e UF; lança `Error` se a tabela não tiver Caiapônia.
+  - Os seeds resolvem o `cityCode` por nome + UF. O de e2e usa Lagoa da Prata/MG e falha alto se o município não existir.
+
+- [ ] **Step 1: Escrever os testes que falham**
+
+`text.test.ts`:
+```ts
+expect(normalizeName('  João   da  CONCEIÇÃO ')).toBe('joao da conceicao');
+expect(normalizeName('Caiapônia')).toBe(normalizeName('CAIAPONIA'));
+```
+
+- [ ] **Step 2: Rodar e confirmar a falha**
+
+Run: `npm test`
+Expected: FAIL (`src/lib/text.ts` inexistente)
+
+- [ ] **Step 3: Escrever o script, rodá-lo uma vez e montar a migration (DDL + carga + backfill).** Aplique com `npm run db:local:migrate`.
+
+- [ ] **Step 4: Conferir os dados no banco local de desenvolvimento**
+
+Run: `docker exec sorteios-lagoa-db psql -U <usuário do .env.local> -d <banco de dev> -c 'select (select count(*) from "BrState") ufs, (select count(*) from "Municipality") municipios, (select code from "Municipality" where name = '"'"'Caiapônia'"'"' and uf = '"'"'GO'"'"') caiaponia;'`
+Expected: `ufs = 27`, `municipios >= 5560` e um código de Caiapônia. Anote no relatório o código e quantos atletas e arenas do banco de dev casaram ou ficaram para revisão.
+
+- [ ] **Step 5: Implementar `text.ts`, `localities.ts` e os seeds**
+
+- [ ] **Step 6: Rodar tudo**
+
+Run: `npm run lint && npm test && npm run test:e2e`
+Expected: verde
+
+- [ ] **Step 7: Commit** — `feat: localidades IBGE, clube, documento reservado e notas privadas de atleta`
+
+---
+
+### Task 4: Commands de atletas, arenas e provas; handlers `/api` delegam
 
 **Files:**
 - Create: `src/types/arenas.ts` (sai o `ArenaOption` de `src/components/EventsPage.tsx`, item adiado da fase 1)
@@ -227,16 +293,21 @@ Expected: verde. O `globalSetup` recria o banco de testes com a migration nova.
 - Test: `src/server/services/commands/athletes.test.ts`, `arenas.test.ts`, `events.test.ts` (com `vi.mock('../../prisma')`)
 
 **Interfaces:**
-- Consumes: `prisma`, `ownerScope`/`eventScope`, `accessScope` (Task 2), `canAccessOwnerData`/`isAdmin`/`isManager`, `DomainError`/`notFound` (Task 1), `eventInclude` (`raw.ts`).
+- Consumes: `prisma`, `ownerScope`/`eventScope`, `accessScope` (Task 2), `findMunicipality`/`normalizeName` (Task 3), `canAccessOwnerData`/`isAdmin`/`isManager`, `DomainError`/`notFound` (Task 1), `eventInclude` (`raw.ts`).
 - Produces:
-  - `interface ArenaOption { id: string; name: string; city: string; state: string; ownerId?: string; ownerName?: string }`
+  - `interface ArenaOption { id: string; name: string; city: string; state: string; cityCode?: number; ownerId?: string; ownerName?: string }`
   - `resolveOwnerId(user: ScopeUser, requested?: string): Promise<string>`. User → `user.id`, sempre. Gerente → `requested ?? user.id`; se `requested` não for um usuário ativo, lança `DomainError('Proprietário inválido.', { field: 'ownerId' })`.
-  - `interface AthleteData { name: string; nickname?: string | null; phone?: string | null; email?: string | null; city?: string | null; state?: string | null; headHandicap: number; heelHandicap: number }`
-  - `createAthlete(user, data: AthleteData & { ownerId?: string }): Promise<Athlete>`; `updateAthlete(user, id: string, data: Partial<AthleteData> & { ownerId?: string }): Promise<Athlete>` (`ownerId` só é aplicado para gerente); `deactivateAthlete(user, id): Promise<void>` (`active: false`). Alvo procurado com `{ id, active: true, ...accessScope(user) }`; ausente → `notFound('Atleta')`. Para desativar, se `!canAccessOwnerData(user.role, user.id, alvo.ownerId)` → `DomainError('Só o proprietário ou um gerente pode remover este cadastro.', { status: 403 })`.
-  - `interface ArenaData { name: string; city: string; state: string }`
-  - `createArena(user, data: ArenaData & { ownerId?: string }, tx?: Prisma.TransactionClient): Promise<{ arena: Arena; created: boolean }>`. Se já existe arena ativa com o mesmo nome, cidade e UF (comparação sem diferenciar maiúsculas) do mesmo dono, devolve `{ arena: existente, created: false }`.
+  - `interface AthleteData { name: string; nickname?: string | null; club?: string | null; cityCode?: number | null; phone?: string | null; email?: string | null; city?: string | null; state?: string | null; headHandicap: number; heelHandicap: number }`.
+    - Com `cityCode`, o command busca o município (`findMunicipality`) e grava `cityCode`, `city` (nome) e `state` (UF). Código inexistente → `DomainError('Escolha uma cidade da lista.', { field: 'cityCode' })`.
+    - Sem `cityCode` (só a API legada manda texto), grava `city`/`state` como vierem e deixa `cityCode` nulo.
+  - `createAthlete(user, data: AthleteData & { ownerId?: string }): Promise<Athlete>`; `updateAthlete(user, id: string, data: Partial<AthleteData> & { ownerId?: string }): Promise<Athlete>` (`ownerId` só é aplicado para gerente); `deactivateAthlete(user, id): Promise<void>` (`active: false`). Alvo procurado com `{ id, active: true, ...accessScope(user) }`; ausente → `notFound('Atleta')`. Para **editar ou desativar**, se `!canAccessOwnerData(user.role, user.id, alvo.ownerId)` → `DomainError('Só o proprietário ou um gerente pode alterar este cadastro.', { status: 403 })`.
+  - `saveAthleteNote(user, athleteId: string, body: string): Promise<void>`. O atleta precisa estar no `accessScope` (senão `notFound('Atleta')`). Faz upsert de `AthleteNote` com a chave `(athleteId, user.id)`; `body` vazio após `trim` apaga a nota.
+  - `getAthleteNotes(user, athleteIds: string[]): Promise<Record<string, string>>`: só as notas do próprio usuário.
+  - `findDuplicateAthletes(user, input: { name: string; cityCode: number; club?: string | null }): Promise<Array<{ id: string; name: string; city: string | null; state: string | null; club: string | null; ownerName: string | null }>>`. Busca atletas ativos com o mesmo `cityCode` dentro de `accessScope(user)` (gerente: todos) e filtra em memória por `normalizeName(name)` igual e `normalizeName(club ?? '')` igual.
+  - `interface ArenaData { name: string; cityCode?: number; city?: string; state?: string }`. Mesma regra de município dos atletas: com `cityCode`, grava também `city`/`state`.
+  - `createArena(user, data: ArenaData & { ownerId?: string }, tx?: Prisma.TransactionClient): Promise<{ arena: Arena; created: boolean }>`. Se já existe arena ativa do mesmo dono com o mesmo nome (sem diferenciar maiúsculas) e o mesmo `cityCode` (ou, sem código, a mesma cidade e UF em texto), devolve `{ arena: existente, created: false }`.
   - `updateArena(user, id, data: Partial<ArenaData>): Promise<Arena>`. Renomear para nome+cidade+UF de outra arena ativa do mesmo dono → `DomainError('Já existe uma arena com esse nome nessa cidade.', { status: 409, field: 'name' })`.
-  - `deactivateArena(user, id): Promise<void>`. As provas que usam a arena continuam com ela; ela só some das listas de escolha. `updateArena` e `deactivateArena` procuram o alvo com `accessScope` e aplicam a mesma regra de 403 dos atletas ao desativar.
+  - `deactivateArena(user, id): Promise<void>`. As provas que usam a arena continuam com ela; ela só some das listas de escolha. `updateArena` e `deactivateArena` procuram o alvo com `accessScope` e aplicam a mesma regra de 403 dos atletas.
   - `createEvent(user, data: { name: string; eventDate: Date; arenaId?: string; newArena?: ArenaData; ownerId?: string }): Promise<Event & EventInclude>`. Em `prisma.$transaction`: resolve o dono; com `arenaId`, a arena precisa estar ativa e no `accessScope` do usuário (arena compartilhada vale) (senão `DomainError('Arena não encontrada ou inativa.', { status: 404, field: 'arenaId' })`); sem `arenaId`, usa `createArena(..., tx)` com o mesmo dono (reaproveita a existente); cria a prova com `status: 'DRAFT'`.
   - `updateEvent(user, id, data: { name?: string; eventDate?: Date }): Promise<Event & EventInclude>`; `cancelEvent(user, id): Promise<void>` (`status: 'CANCELLED'`). Alvo procurado com `{ id, ...eventScope(user) }`; ausente → `notFound('Prova')`. Cancelar uma prova já cancelada não faz nada e não dá erro.
   - Handlers: `DomainError` vira `res.status(error.status).json({ message: error.message })`. O POST de `/api/arenas` responde 200 quando `created === false` e 201 quando cria, como hoje.
@@ -263,12 +334,22 @@ it('user não altera atleta de outro (404)', async () => {
 });
 it('user não troca o dono ao editar', async () => { /* ownerId: 'u2' no input → update sem ownerId */ });
 it('desativar marca active=false', async () => { /* update com { active: false } */ });
-it('usuário com quem o atleta foi compartilhado edita, mas não desativa (403)', async () => {
+it('usuário com quem o atleta foi compartilhado não edita nem desativa (403)', async () => {
   prisma.athlete.findFirst.mockResolvedValue({ id: 'a1', ownerId: 'u2' });
-  await updateAthlete({ id: 'u1', role: 'USER' }, 'a1', { name: 'Novo nome' });
-  expect(prisma.athlete.update).toHaveBeenCalledTimes(1);
-  await expect(deactivateAthlete({ id: 'u1', role: 'USER' }, 'a1')).rejects.toMatchObject({ status: 403, message: 'Só o proprietário ou um gerente pode remover este cadastro.' });
-  expect(prisma.athlete.update).toHaveBeenCalledTimes(1);
+  const denied = { status: 403, message: 'Só o proprietário ou um gerente pode alterar este cadastro.' };
+  await expect(updateAthlete({ id: 'u1', role: 'USER' }, 'a1', { name: 'Novo nome' })).rejects.toMatchObject(denied);
+  await expect(deactivateAthlete({ id: 'u1', role: 'USER' }, 'a1')).rejects.toMatchObject(denied);
+  expect(prisma.athlete.update).not.toHaveBeenCalled();
+});
+it('usuário compartilhado grava a própria nota', async () => { /* findFirst devolve atleta de u2; saveAthleteNote(u1, 'a1', ' obs ') → athleteNote.upsert com where athleteId_userId { a1, u1 } e body 'obs' */ });
+it('nota vazia apaga', async () => { /* body '  ' → athleteNote.deleteMany({ where: { athleteId: 'a1', userId: 'u1' } }) */ });
+it('com cityCode grava cidade e UF do município', async () => { /* findMunicipality mock → { code: 5204300, name: 'Caiapônia', uf: 'GO' }; create com cityCode, city 'Caiapônia', state 'GO' (valores do mock, não o código real) */ });
+it('cityCode inexistente → erro no campo cityCode', async () => { /* findMunicipality → null */ });
+it('duplicados ignoram acento e caixa e respeitam o escopo', async () => {
+  prisma.athlete.findMany.mockResolvedValue([{ id: 'a9', name: 'JOÃO SILVA', club: 'Haras X', city: 'Caiapônia', state: 'GO', owner: { name: 'User A' } }, { id: 'a8', name: 'João Silva', club: 'Outro', city: 'Caiapônia', state: 'GO', owner: null }]);
+  const found = await findDuplicateAthletes({ id: 'u1', role: 'USER' }, { name: 'joao silva', cityCode: 1, club: 'haras x' });
+  expect(found.map((a) => a.id)).toEqual(['a9']);
+  expect(prisma.athlete.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ active: true, cityCode: 1, OR: [{ ownerId: 'u1' }, { shares: { some: { userId: 'u1' } } }] }) }));
 });
 ```
 
@@ -299,7 +380,7 @@ Expected: verde. As telas ainda usam a API; os e2e da fase 1 provam que o contra
 
 ---
 
-### Task 4: Schemas Zod e Server Actions dos cadastros
+### Task 5: Schemas Zod e Server Actions dos cadastros
 
 **Files:**
 - Create: `src/lib/schemas/cadastros.ts` (puro)
@@ -308,9 +389,9 @@ Expected: verde. As telas ainda usam a API; os e2e da fase 1 provam que o contra
 - Test: `src/lib/schemas/cadastros.test.ts`, `src/server/actions/actions.test.ts`, `src/lib/mappers.test.ts` (casos novos)
 
 **Interfaces:**
-- Consumes: `runAction` (Task 1), commands (Task 3), `toCompetitor`, `toEventSummary`.
+- Consumes: `runAction` (Task 1), commands (Task 4), `toCompetitor`, `toEventSummary`.
 - Produces:
-  - Em `src/types/roping.ts`, `Competitor` ganha `estado?: string`. `PersistedAthlete` ganha `nickname?: string | null` e `state?: string | null`.
+  - Em `src/types/roping.ts`, `Competitor` ganha `estado?: string`, `clube?: string`, `cityCode?: number` e `cityNeedsReview?: boolean` (`true` quando há `city` em texto e `cityCode` é nulo). `PersistedAthlete` ganha `nickname`, `state`, `club` e `cityCode` (todos opcionais e anuláveis).
   - Em `src/types/events.ts`, `EventSummary` ganha `isoDate: string` (`AAAA-MM-DD`, calculado em UTC).
   - Schemas (strings vazias ou só com espaços viram `undefined` antes da validação):
 
@@ -318,17 +399,19 @@ Expected: verde. As telas ainda usam a API; os e2e da fase 1 provam que o contra
 |---|---|---|
 | `athleteSchema` | `name` | trim, 2–120: "Informe o nome com pelo menos 2 letras." / "Use no máximo 120 caracteres." |
 | | `nickname` | opcional, até 80 |
-| | `city` | opcional, até 100 |
-| | `state` | opcional, maiúsculas, `/^[A-Z]{2}$/`: "Use a sigla do estado, ex.: MG." |
+| | `club` | opcional, até 80 |
+| | `cityCode` | obrigatório, inteiro positivo (aceita string numérica): "Escolha uma cidade da lista." |
 | | `headHandicap`, `heelHandicap` | obrigatório ("Informe o handicap."), número 0–10 ("O handicap vai de 0 a 10."), múltiplo de 0,5 ("Use múltiplos de 0,5."); aceita string numérica com vírgula ou ponto |
 | `arenaSchema` | `name` | trim, 2–120: "Informe o nome da arena." |
-| | `city` | trim, 2–100: "Informe a cidade." |
-| | `state` | obrigatório, mesma regra de UF |
+| | `cityCode` | mesma regra do atleta |
 | `eventSchema` | `name` | trim, 3–160: "Informe o nome da prova (mínimo 3 letras)." |
 | | `eventDate` | `AAAA-MM-DD` e data real: "Informe uma data válida." |
 | | `arenaId` | opcional |
-| | `arenaName`, `city`, `state` | obrigatórios só sem `arenaId` (`superRefine` com `path` de cada campo); mensagens do `arenaSchema` |
+| | `arenaName`, `cityCode` | obrigatórios só sem `arenaId` (`superRefine` com `path` de cada campo); mensagens do `arenaSchema` |
 | `eventUpdateSchema` | `name`, `eventDate` | as mesmas regras, ambos obrigatórios |
+| `athleteNoteSchema` | `body` | até 2000: "Use no máximo 2000 caracteres." (vazio é permitido e apaga) |
+| `duplicateCheckSchema` | `name`, `cityCode`, `club` | as mesmas regras do `athleteSchema` |
+| `ufSchema` | — | `/^[A-Z]{2}$/` |
 
   - Nenhum schema tem `ownerId`: as actions sempre criam para o próprio usuário (spec 6.9). Chaves desconhecidas são descartadas pelo Zod.
   - Tipos de entrada: `AthleteFormInput = z.input<typeof athleteSchema>`, `ArenaFormInput`, `EventFormInput`, `EventUpdateInput`.
@@ -342,6 +425,9 @@ Expected: verde. As telas ainda usam a API; os e2e da fase 1 provam que o contra
 | `createArenaAction(input: ArenaFormInput)` | `ActionResult<ArenaOption>` | `/provas` |
 | `updateArenaAction(id: string, input: ArenaFormInput)` | `ActionResult<ArenaOption>` | `/provas` |
 | `deactivateArenaAction(id: string)` | `ActionResult<null>` | `/provas` |
+| `saveAthleteNoteAction(athleteId: string, input: { body: string })` | `ActionResult<null>` | `/atletas` |
+| `checkAthleteDuplicatesAction(input)` | `ActionResult<DuplicateCandidate[]>` (o retorno de `findDuplicateAthletes`) | nada |
+| `listMunicipalitiesAction(uf: string)` | `ActionResult<Array<{ code: number; name: string }>>` | nada |
 | `createEventAction(input: EventFormInput)` | `ActionResult<{ id: string }>` | `/provas`, `/agenda`, `/` |
 | `updateEventAction(id: string, input: EventUpdateInput)` | `ActionResult<EventSummary>` | idem + `{ path: '/provas/<id>', type: 'layout' }` |
 | `cancelEventAction(id: string)` | `ActionResult<null>` | idem ao update |
@@ -369,7 +455,7 @@ expect(eventSchema.safeParse({ name: 'Copa', eventDate: '2026-12-05', arenaId: '
 
 `actions.test.ts` (mocks de `server-only`, `next/cache`, `../session` e dos commands):
 - `createAthleteAction devolve o Competitor mapeado e revalida /atletas, / e /sorteio-avulso`.
-- `createEventAction converte a data para meio-dia UTC`: o command recebe `eventDate` igual a `new Date('2026-12-05T12:00:00.000Z')` e `newArena` montado de `arenaName/city/state` quando não há `arenaId`.
+- `createEventAction converte a data para meio-dia UTC`: o command recebe `eventDate` igual a `new Date('2026-12-05T12:00:00.000Z')` e `newArena` igual a `{ name: arenaName, cityCode }` quando não há `arenaId`.
 - `createArenaAction com arena existente devolve erro no campo name`.
 - `cancelEventAction revalida o layout da prova`.
 
@@ -391,7 +477,7 @@ Expected: verde
 
 ---
 
-### Task 5: Tela de atletas (e cadastro rápido do sorteio avulso)
+### Task 6: Tela de atletas (e cadastro rápido do sorteio avulso)
 
 **Files:**
 - Modify: `app/(app)/atletas/page.tsx` (lê `searchParams.dono`; `PageHeader` com a ação "Novo atleta")
@@ -399,26 +485,37 @@ Expected: verde
 - Create: `src/components/athletes/AthletesView.tsx` (client: busca, lista, editar, remover, empty states)
 - Create: `src/components/athletes/AthleteFormDialog.tsx` (client: criar e editar)
 - Create: `src/components/athletes/NewAthleteButton.tsx` (client: botão do `PageHeader` que abre o diálogo)
+- Create: `src/components/locations/CityPicker.tsx` (client; reaproveitado pela Task 7)
+- Create: `src/components/athletes/AthleteNotesDialog.tsx` (client)
 - Modify: `app/(app)/sorteio-avulso/QuickDrawClient.tsx` (usa `AthleteFormDialog` no lugar do `NewCompetitorModal` e do POST em `/api/athletes`)
 - Delete: `app/(app)/atletas/AthletesClient.tsx`, `src/components/AthletesPage.tsx`, `src/components/NewCompetitorModal.tsx`
 - Create: `e2e/athletes.spec.ts`
-- Test: `src/components/athletes/AthleteFormDialog.test.tsx`
+- Test: `src/components/athletes/AthleteFormDialog.test.tsx`, `src/components/locations/CityPicker.test.tsx`
 
 **Interfaces:**
-- Consumes: `listAthletes(user, { ownerId })` (já com `accessScope`, Task 2), `listOwners`, actions de atleta (Task 4), `useAction`, `Dialog`, `OwnerFilter`, `useConfirm`, `EmptyState`, `TEST_SHARED_ATHLETE`.
+- Consumes: `listAthletes(user, { ownerId })` (já com `accessScope`, Task 2), `getAthleteNotes`, `listStates`/`getDefaultCity` (Task 3), `listOwners`, actions de atleta, de notas, de duplicados e de municípios (Task 5), `useAction`, `Dialog`, `OwnerFilter`, `useConfirm`, `EmptyState`, `TEST_SHARED_ATHLETE`.
 - Produces:
-  - `AthleteFormDialog({ open, onClose, athlete?, onSaved? }: { open: boolean; onClose: () => void; athlete?: Competitor; onSaved?: (athlete: Competitor) => void })`.
+  - `CityPicker({ states, defaultUf, defaultCity, error, hint }: { states: Array<{ uf: string; name: string }>; defaultUf: string; defaultCity?: { code: number; name: string }; error?: string; hint?: string })`.
+    - `Select` "UF" (sigla + nome) e um `Input` "Cidade" com `list` apontando para um `<datalist>` dos municípios da UF, carregados por `listMunicipalitiesAction(uf)` e guardados em cache por UF no componente.
+    - Guarda o código num `<input type="hidden" name="cityCode">` e expõe `value`/`onChange` (`{ uf: string; cityCode: number | null; cityName: string }`) para formulários controlados.
+    - Trocar a UF limpa a cidade. O texto digitado só vira código quando bate exatamente, sem diferenciar acento e caixa (`normalizeName`), com um município da UF; senão, `cityCode` fica `null` e o servidor responde "Escolha uma cidade da lista.".
+  - `AthleteFormDialog({ open, onClose, athlete?, states, defaultCity, onSaved?, onUseExisting? }: { open: boolean; onClose: () => void; athlete?: Competitor; states: State[]; defaultCity: { code: number; name: string; uf: string }; onSaved?: (athlete: Competitor) => void; onUseExisting?: (athleteId: string) => void })`.
     - Título "Novo atleta" ou "Editar atleta".
-    - Campos, todos com `Input`/`Select` e rótulo: "Nome", "Apelido", "Cidade", "UF", "Handicap de cabeceiro", "Handicap de pezeiro" (`inputMode="decimal"`, padrão `2.5` ao criar). Sem campo de proprietário.
+    - Campos, todos com `Input`/`Select` e rótulo: "Nome", "Apelido", "Clube", o `CityPicker` ("UF" e "Cidade"), "Handicap de cabeceiro" e "Handicap de pezeiro" (`inputMode="decimal"`, padrão `2.5` ao criar). Sem campo de proprietário nem de documento.
+    - Na criação, o `CityPicker` começa na cidade padrão (`defaultCity`, prop vinda da página: GO/Caiapônia, lida da tabela). Na edição, começa no `cityCode` do atleta; se o atleta estiver com "Cidade a revisar", começa vazio e mostra a dica "Cidade anterior: <texto>".
+    - **Aviso de duplicado** (só na criação): ao clicar em "Salvar atleta", chama primeiro `checkAthleteDuplicatesAction`. Se houver candidatos, mostra dentro do diálogo um bloco `role="alert"` com o título "Possível atleta já cadastrado", a lista "<nome> · <cidade>/<UF> · <clube>" (+ "de <dono>" para gerente) e os botões "Usar o existente" (fecha o diálogo e chama `onUseExisting(id)`) e "Cadastrar mesmo assim" (chama `createAthleteAction`). Sem candidatos, cria direto. A verificação nunca bloqueia: se ela falhar, o cadastro segue. O botão fica desabilitado durante a verificação e a criação, para o duplo clique não gerar dois cadastros.
     - Botões "Cancelar" e "Salvar atleta" (`loading` enquanto pendente).
     - O estado do formulário só é limpo depois de um sucesso; numa falha, tudo o que foi digitado continua no lugar.
     - Sucesso: `toast.success('Atleta cadastrado.')` ou `toast.success('Atleta atualizado.')`, chama `onSaved` e fecha.
-  - `AthletesView({ athletes, owners, canFilterOwners, ownerFilter, currentUserId })`.
+  - `AthletesView({ athletes, notes, owners, canFilterOwners, ownerFilter, currentUserId, states, defaultCity })`.
     - Barra com a busca (`Input` com rótulo "Buscar atleta", filtra no cliente por nome, apelido e cidade, sem diferenciar acentos) e o `OwnerFilter` para gerente.
     - Contagem: "N atletas" (ou "1 atleta").
     - Lista única, sem marcação duplicada para desktop e mobile: no `md+`, linhas em grade com o cabeçalho Nome · Cidade · HC cab. · HC pé · [Proprietário] · Ações; no mobile, as mesmas linhas empilhadas. Cada linha é um `<li>` com o nome em `truncate`.
-    - Atleta de outro dono, visto por um User porque foi compartilhado (`athlete.ownerId !== currentUserId` e o usuário não é gerente): a linha mostra o `Badge` "Compartilhado" e o texto "por <ownerName>", e não tem o botão Remover.
-    - Ações por linha: botões de ícone com `aria-label="Editar <nome>"` e `aria-label="Remover <nome>"`.
+    - Atleta de outro dono, visto por um User porque foi compartilhado (`athlete.ownerId !== currentUserId` e o usuário não é gerente): a linha mostra o `Badge` "Compartilhado" e o texto "por <ownerName>", e **não tem Editar nem Remover**.
+    - A coluna Cidade mostra "<cidade>/<UF>" e o clube logo abaixo; com `cityNeedsReview`, mostra o `Badge` "Cidade a revisar" (tom `warning`).
+    - Ações por linha: botões de ícone com `aria-label="Notas de <nome>"` (em todas as linhas; indica com um ponto quando já há nota), `aria-label="Editar <nome>"` e `aria-label="Remover <nome>"`.
+    - `AthleteNotesDialog({ open, onClose, athlete, initialBody })`: título "Notas sobre <nome>", texto "Só você vê estas notas.", `textarea` com o rótulo "Notas" e botão "Salvar notas", via `saveAthleteNoteAction`, com o sucesso "Notas salvas.". As notas vêm de `getAthleteNotes` na página (prop `notes: Record<string, string>`).
+    - "Usar o existente" no diálogo de cadastro preenche a busca com o nome do atleta escolhido.
     - Remover usa `useConfirm` (título "Remover o atleta?"; descrição "<nome> sai da lista de atletas. Inscrições e sorteios já feitos não mudam."; botão "Remover atleta"; tom `danger`), depois `deactivateAthleteAction` com `toastErrors: true` e o sucesso "Atleta removido.".
     - Empty states: sem atletas, "Nenhum atleta cadastrado", com o botão "Cadastrar atleta"; busca sem resultado, "Nenhum atleta encontrado", com o botão "Limpar busca".
   - Skeleton: cabeçalho, barra de filtros e 6 linhas na mesma grade.
@@ -429,6 +526,10 @@ Expected: verde
 - `falha mantém os dados e mostra o erro do campo, sem toast`: a action devolve `{ ok: false, message: 'Revise os campos destacados.', fieldErrors: { name: ['Informe o nome com pelo menos 2 letras.'] } }` → o campo "Nome" mantém o valor digitado, tem `aria-invalid="true"` e o texto do erro; o diálogo segue aberto; `toast.error` não é chamado.
 - `sucesso chama onSaved e onClose`.
 - `edição abre preenchida com os dados do atleta`.
+- `duplicado mostra o aviso e "Cadastrar mesmo assim" cria`: `checkAthleteDuplicatesAction` devolve 1 candidato → o aviso aparece, `createAthleteAction` ainda não foi chamada; o clique em "Cadastrar mesmo assim" a chama uma vez.
+- `"Usar o existente" chama onUseExisting com o id e fecha`.
+
+`CityPicker.test.tsx` (mock de `listMunicipalitiesAction`): começa com GO e Caiapônia (props); trocar para MG limpa a cidade e carrega a lista de MG; digitar "lagoa da prata" (minúsculas, sem acento) resolve para o código do município da lista mockada; texto fora da lista deixa `cityCode` nulo.
 
 `e2e/athletes.spec.ts` (todos os testes nos dois projetos; `suffix = testInfo.project.name`):
 ```ts
@@ -440,13 +541,15 @@ test('cria, edita e remove um atleta', async ({ page }, testInfo) => {
   const dialog = page.getByRole('dialog', { name: 'Novo atleta' });
   await dialog.getByLabel('Nome').fill(name);
   await dialog.getByLabel('Handicap de cabeceiro').fill('3');
+  await expect(dialog.getByLabel('UF')).toHaveValue('GO');
+  await expect(dialog.getByLabel('Cidade')).toHaveValue('Caiapônia');
   await dialog.getByRole('button', { name: 'Salvar atleta' }).dblclick();
   await expect(page.getByText('Atleta cadastrado.')).toBeVisible();
   await expect(page.getByRole('listitem').filter({ hasText: name })).toHaveCount(1);
   await page.getByRole('button', { name: `Editar ${name}` }).click();
-  await page.getByRole('dialog', { name: 'Editar atleta' }).getByLabel('Cidade').fill('Arcos');
+  await page.getByRole('dialog', { name: 'Editar atleta' }).getByLabel('Cidade').fill('Rio Verde');
   await page.getByRole('button', { name: 'Salvar atleta' }).click();
-  await expect(page.getByRole('listitem').filter({ hasText: name })).toContainText('Arcos');
+  await expect(page.getByRole('listitem').filter({ hasText: name })).toContainText('Rio Verde/GO');
   await page.getByRole('button', { name: `Remover ${name}` }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Remover atleta' }).click();
   await expect(page.getByText(name)).toHaveCount(0);
@@ -457,10 +560,11 @@ test('erro de validação mantém o que foi digitado', async ({ page }) => {
   await page.getByRole('button', { name: 'Novo atleta' }).click();
   const dialog = page.getByRole('dialog', { name: 'Novo atleta' });
   await dialog.getByLabel('Nome').fill('Z');
-  await dialog.getByLabel('Cidade').fill('Lagoa da Prata');
+  await dialog.getByLabel('Clube').fill('Haras Lagoa');
   await dialog.getByRole('button', { name: 'Salvar atleta' }).click();
   await expect(dialog.getByText('Informe o nome com pelo menos 2 letras.')).toBeVisible();
-  await expect(dialog.getByLabel('Cidade')).toHaveValue('Lagoa da Prata');
+  await expect(dialog.getByLabel('Clube')).toHaveValue('Haras Lagoa');
+  await expect(dialog.getByLabel('Cidade')).toHaveValue('Caiapônia');
   await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
 });
 test('sessão expirada ao salvar leva ao login com next', async ({ page, context }) => { /* abre o diálogo, preenche, clearCookies, salva → toHaveURL(/\/login\?next=%2Fatletas&reason=expired/) */ });
@@ -484,9 +588,40 @@ test('atleta compartilhado aparece para o user A, editável e sem remover', asyn
   const row = page.getByRole('listitem').filter({ hasText: TEST_SHARED_ATHLETE });
   await expect(row).toContainText('Compartilhado');
   await expect(row).toContainText('User B Teste');
-  await expect(page.getByRole('button', { name: `Editar ${TEST_SHARED_ATHLETE}` })).toBeVisible();
+  await expect(page.getByRole('button', { name: `Editar ${TEST_SHARED_ATHLETE}` })).toHaveCount(0);
   await expect(page.getByRole('button', { name: `Remover ${TEST_SHARED_ATHLETE}` })).toHaveCount(0);
 });
+test('notas são privadas e persistem', async ({ page }, testInfo) => {
+  const note = `Laça bem de cabeça ${testInfo.project.name}`;
+  await loginAs(page, 'userA');
+  await page.goto('/atletas');
+  await page.getByRole('button', { name: `Notas de ${TEST_SHARED_ATHLETE}` }).click();
+  await page.getByRole('dialog').getByLabel('Notas').fill(note);
+  await page.getByRole('button', { name: 'Salvar notas' }).click();
+  await expect(page.getByText('Notas salvas.')).toBeVisible();
+  await page.reload();
+  await page.getByRole('button', { name: `Notas de ${TEST_SHARED_ATHLETE}` }).click();
+  await expect(page.getByRole('dialog').getByLabel('Notas')).toHaveValue(note);
+  await loginAs(page, 'userB');
+  await page.goto('/atletas');
+  await page.getByRole('button', { name: `Notas de ${TEST_SHARED_ATHLETE}` }).click();
+  await expect(page.getByRole('dialog').getByLabel('Notas')).toHaveValue('');
+});
+test('aviso de possível duplicado sem bloquear', async ({ page }) => {
+  await loginAs(page, 'userA');
+  await page.goto('/atletas');
+  await page.getByRole('button', { name: 'Novo atleta' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Novo atleta' });
+  await dialog.getByLabel('Nome').fill('cabeceiro a1'); // mesmo nome do seed, em outra caixa
+  await dialog.getByLabel('UF').selectOption('MG');
+  await dialog.getByLabel('Cidade').fill('Lagoa da Prata');
+  await dialog.getByRole('button', { name: 'Salvar atleta' }).click();
+  await expect(dialog.getByText('Possível atleta já cadastrado')).toBeVisible();
+  await dialog.getByRole('button', { name: 'Usar o existente' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByLabel('Buscar atleta')).toHaveValue('CABECEIRO A1');
+});
+test('o user B não recebe aviso de duplicado de atleta do A', async ({ page }) => { /* userB cria "Cabeceiro A1" em MG/Lagoa da Prata → nenhum aviso, toast 'Atleta cadastrado.' */ });
 ```
 Ajuste também `e2e/quick-draw.spec.ts`: um teste novo abre o cadastro rápido do sorteio avulso, cria `ATLETA AVULSO <projeto>` e confere que ele aparece na lista de disponíveis sem recarregar a página.
 
@@ -506,7 +641,7 @@ Expected: verde
 
 ---
 
-### Task 6: Tela de provas e arenas
+### Task 7: Tela de provas e arenas
 
 **Files:**
 - Modify: `app/(app)/provas/(lista)/page.tsx` (lê `searchParams.dono` e `searchParams.canceladas`; `PageHeader` com a ação "Nova prova")
@@ -523,7 +658,7 @@ Expected: verde
 - Test: `src/components/events/EventFormDialog.test.tsx`
 
 **Interfaces:**
-- Consumes: `listEvents(user, { ownerId })`, `listArenas(user, { ownerId })`, `listOwners`, actions de provas e arenas (Task 4), `useAction`, `Dialog`, `OwnerFilter`, `useConfirm`.
+- Consumes: `CityPicker` (Task 6), `listStates`/`getDefaultCity` (Task 3), `listEvents(user, { ownerId })`, `listArenas(user, { ownerId })`, `listOwners`, actions de provas e arenas (Task 5), `useAction`, `Dialog`, `OwnerFilter`, `useConfirm`.
 - Produces:
   - Layout: no `xl`, duas colunas (`xl:grid-cols-[minmax(0,1fr)_22rem]`), com as provas à esquerda e `ArenasPanel` à direita; abaixo do `xl`, as arenas vêm depois das provas.
   - `EventsView({ events, arenas, owners, canFilterOwners, ownerFilter, showCancelled })`.
@@ -532,18 +667,18 @@ Expected: verde
     - As provas canceladas ficam fora da lista por padrão. Um link-botão "Mostrar canceladas" / "Ocultar canceladas" alterna `?canceladas=1`, preservando `dono`.
     - Cancelar usa `useConfirm` com o texto atual ("Cancelar a prova?", `A prova "<nome>" será marcada como cancelada.`, "Cancelar prova", "Manter prova", `danger`), depois `cancelEventAction` com `toastErrors: true` e o sucesso "Prova cancelada.".
     - Empty states: sem provas, "Nenhuma prova cadastrada", com o botão "Cadastrar prova"; com canceladas ocultas e nenhuma ativa, "Nenhuma prova ativa", com o link "Mostrar canceladas".
-  - `EventFormDialog({ open, onClose, event?, arenas })`.
+  - `EventFormDialog({ open, onClose, event?, arenas, states, defaultCity })`.
     - Título "Nova prova" ou "Editar prova".
     - Campos: "Nome da prova" e "Data" (`type="date"`, preenchido com `isoDate` na edição). Sem campo de proprietário; o responsável é trocado em `/cadastros`.
-    - Na criação há ainda o `Select` "Arena", com a primeira opção "Cadastrar nova arena" seguida das arenas `nome · cidade/UF`. Com "Cadastrar nova arena", aparecem "Nome da nova arena", "Cidade" e "UF".
+    - Na criação há ainda o `Select` "Arena", com a primeira opção "Cadastrar nova arena" seguida das arenas `nome · cidade/UF`. Com "Cadastrar nova arena", aparecem "Nome da nova arena" e o `CityPicker` (Task 6), começando em GO/Caiapônia.
     - Na edição, a arena aparece só como texto ("Arena: <nome>"); ela não muda nesta fase.
     - Botão "Salvar prova". Sucesso: "Prova criada." ou "Prova atualizada.".
-  - `ArenasPanel({ arenas, canSeeOwners, currentUserId })`.
+  - `ArenasPanel({ arenas, canSeeOwners, currentUserId, states, defaultCity })`.
     - Título "Arenas", botão "Nova arena" e a lista `nome` + `cidade/UF` (+ dono para gerente).
-    - Botões `aria-label="Editar <nome>"` e `aria-label="Desativar <nome>"`. Arena compartilhada com um User (dono diferente) mostra "Compartilhada" e não tem Desativar.
+    - Botões `aria-label="Editar <nome>"` e `aria-label="Desativar <nome>"`. Arena compartilhada com um User (dono diferente) mostra "Compartilhada" e não tem Editar nem Desativar. Arena com cidade sem código mostra "Cidade a revisar".
     - Desativar pede confirmação ("Desativar a arena?"; "<nome> deixa de aparecer na escolha de arenas. Provas já cadastradas continuam com ela."; "Desativar arena").
     - Empty state: "Nenhuma arena cadastrada".
-  - `ArenaFormDialog`: título "Nova arena" ou "Editar arena"; campos "Nome", "Cidade" e "UF"; botão "Salvar arena"; sucesso "Arena cadastrada." ou "Arena atualizada.".
+  - `ArenaFormDialog`: título "Nova arena" ou "Editar arena"; campos "Nome" e o `CityPicker` (GO/Caiapônia na criação); botão "Salvar arena"; sucesso "Arena cadastrada." ou "Arena atualizada.".
   - Skeleton: cabeçalho, 3 cartões de prova e, no `xl`, a coluna de arenas.
 
 - [ ] **Step 1: Escrever os testes que falham**
@@ -564,8 +699,8 @@ test('cria prova com arena nova e depois reaproveita a arena', async ({ page }, 
   await dialog.getByLabel('Nome da prova').fill(`COPA NOVA ${s}`);
   await dialog.getByLabel('Data').fill('2026-12-20');
   await dialog.getByLabel('Nome da nova arena').fill(`ARENA NOVA ${s}`);
+  await dialog.getByLabel('UF').selectOption('MG');
   await dialog.getByLabel('Cidade').fill('Arcos');
-  await dialog.getByLabel('UF').fill('mg');
   await dialog.getByRole('button', { name: 'Salvar prova' }).click();
   await expect(page.getByText('Prova criada.')).toBeVisible();
   const card = page.getByRole('article').filter({ hasText: `COPA NOVA ${s}` });
@@ -582,8 +717,8 @@ test('arena duplicada mostra erro no campo e mantém o formulário', async ({ pa
   await page.getByRole('button', { name: 'Nova arena' }).click();
   const dialog = page.getByRole('dialog', { name: 'Nova arena' });
   await dialog.getByLabel('Nome').fill(TEST_ARENAS.userA);
+  await dialog.getByLabel('UF').selectOption('MG');
   await dialog.getByLabel('Cidade').fill('Lagoa da Prata');
-  await dialog.getByLabel('UF').fill('MG');
   await dialog.getByRole('button', { name: 'Salvar arena' }).click();
   await expect(dialog.getByText('Já existe uma arena com esse nome nessa cidade.')).toBeVisible();
   await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
@@ -609,7 +744,7 @@ Expected: verde, incluindo `event-routes.spec.ts`, `contrast.spec.ts` (`/provas`
 
 ---
 
-### Task 7: Agenda e painel com filtro por dono no servidor
+### Task 8: Agenda e painel com filtro por dono no servidor
 
 **Files:**
 - Modify: `app/(app)/agenda/page.tsx` e `loading.tsx`
@@ -662,7 +797,7 @@ Expected: verde
 
 ---
 
-### Task 8: Tela de manejo de cadastros (`/cadastros`)
+### Task 9: Tela de manejo de cadastros (`/cadastros`)
 
 **Files:**
 - Create: `src/lib/schemas/shares.ts` (puro) e `shares.test.ts`
@@ -675,7 +810,7 @@ Expected: verde
 - Create: `e2e/records.spec.ts`
 
 **Interfaces:**
-- Consumes: `runAction`, `useAction`, `Dialog`, `useConfirm` (Task 1); `accessScope`/`eventScope` e as tabelas de vínculo (Task 2); `DomainError`; `EventStatusBadge` (Task 6); `requireRole`.
+- Consumes: `runAction`, `useAction`, `Dialog`, `useConfirm` (Task 1); `accessScope`/`eventScope` e as tabelas de vínculo (Task 2); `DomainError`; `EventStatusBadge` (Task 7); `requireRole`.
 - Produces:
   - `RecordType = 'athlete' | 'arena'`.
   - `shareSchema = { type: RecordType; ids: string[] (min 1: "Selecione ao menos um cadastro."); userIds: string[] (min 1: "Selecione ao menos um usuário.") }`.
@@ -783,7 +918,7 @@ Expected: verde
 
 ---
 
-### Task 9: Documentação, revisão visual e verificação final
+### Task 10: Documentação, revisão visual e verificação final
 
 **Files:**
 - Modify: `docs/project-technical-reference.md`:
@@ -791,7 +926,7 @@ Expected: verde
   - a seção de componentes troca `EventsPage`/`AthletesPage` por `src/components/{events,arenas,athletes}`;
   - uma subseção nova, "Server Actions", descreve `runAction`, `ActionResult`, `useAction`, os commands e a regra de feedback;
   - as seções de arenas e atletas registram a deduplicação de arena por dono e a validação do dono escolhido por gerente;
-  - uma seção nova, "Compartilhamento de cadastros", descreve `AthleteShare`/`ArenaShare`, `accessScope`, quem pode compartilhar, editar e desativar, a tela `/cadastros` e a migration `20261116120000_add_record_shares`; as tabelas de rotas e de modelos ganham as entradas novas.
+  - uma seção nova, "Compartilhamento de cadastros", descreve `AthleteShare`/`ArenaShare`, `accessScope`, quem pode compartilhar, editar e desativar, a tela `/cadastros` e a migration `20261116120000_add_record_shares`; outra seção, "Cadastro do atleta", descreve clube, `document` reservado, notas privadas, aviso de duplicados, as tabelas `BrState`/`Municipality`, o script `scripts/generate-ibge-localities.mjs`, o backfill e o padrão GO/Caiapônia; as tabelas de rotas e de modelos ganham as entradas novas.
 - Modify: `app/dev/ui/UiShowcase.tsx` (mostra o `Dialog`)
 
 **Interfaces:**

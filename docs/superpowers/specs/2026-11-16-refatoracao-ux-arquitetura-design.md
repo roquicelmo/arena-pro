@@ -49,8 +49,8 @@ operação nas provas, o objetivo é elevar três coisas:
 - Mudar o algoritmo de sorteio (`src/utils/drawAlgorithm.ts`) — ele é movido/
   reaproveitado, não reescrito.
 - Mudanças destrutivas no schema Prisma. Migrations só aditivas, e apenas se
-  indispensáveis (avisar antes). A única aprovada até aqui é a do
-  compartilhamento de cadastros (seção 6.9).
+  indispensáveis (avisar antes). As aprovadas até aqui são as do
+  compartilhamento de cadastros (seção 6.9) e do cadastro do atleta (seção 6.10).
 - Trocar a stack (Auth.js, Prisma, Tailwind permanecem).
 - Tema escuro.
 - Adotar shadcn/Radix em bloco (componentes próprios continuam; Radix pode ser
@@ -317,8 +317,16 @@ Decisões do usuário (2026-11-16):
   publicação (fases 3 e 4) não muda.
 - **Quem compartilha:** só `MANAGER_ROLES` (Admin, Manager e o legado
   Organizer). User não compartilha.
-- **O que o usuário compartilhado pode fazer:** ver, usar (inscrições, sorteio
-  avulso) e **editar**. **Desativar** continua só com o dono e os gerentes.
+- **Compartilhar, não copiar:** cada atleta ou arena é **um registro só**,
+  ligado a vários usuários. Motivo: no futuro haverá um cadastro unificado do
+  atleta, com notas, tempos e provas.
+- **O que o usuário compartilhado pode fazer:** **ver e usar** (inscrições,
+  sorteio avulso). **Editar e desativar** ficam só com o dono e os gerentes.
+  *(Decisão do usuário, revisada em 2026-11-16; substitui "ver, usar e editar".)*
+- **Notas privadas:** cada usuário escreve notas e observações próprias sobre um
+  atleta que vê (dele ou compartilhado), numa tabela por atleta × usuário,
+  visíveis só para quem as escreveu.
+- Tempos e resultados já pertencem à prova e não mudam.
 - **Modelo de dados:** migration **aditiva** com tabelas de vínculo N:N
   `AthleteShare(athleteId, userId)` e `ArenaShare(arenaId, userId)`, chave
   composta, `onDelete: Cascade` dos dois lados (usuário ou cadastro excluído
@@ -342,6 +350,35 @@ Decisões do usuário (2026-11-16):
   atleta está no escopo "dono ou compartilhado" do dono da prova (hoje a rota
   de inscrição aceita qualquer atleta ativo); o sorteio avulso usa o mesmo
   escopo. A fase 4 não muda, porque provas não são compartilhadas.
+
+### 6.10 Cadastro do atleta: clube, localidades oficiais e duplicados
+
+Decisões do usuário (2026-11-16):
+
+- **Sem CPF por enquanto.** "Inicialmente, vamos pedir apenas Cidade, Clube,
+  etc." O modelo reserva uma coluna opcional `document`, sem campo na tela.
+- **Clube:** campo opcional novo no atleta.
+- **Cidade e estado padronizados por fonte oficial:** tabelas locais de UFs e
+  municípios com o **código IBGE**, geradas uma vez a partir da API de
+  localidades do IBGE (`servicodados.ibge.gov.br/api/v1/localidades`) e
+  carregadas por migration. O sistema **nunca chama o IBGE durante o uso**.
+  - Atleta e arena guardam o código IBGE do município (`cityCode`). As colunas
+    de texto `city`/`state` continuam preenchidas a partir do município, por
+    compatibilidade com a API e as telas antigas. *(Chamada minha.)*
+  - Na tela: select de UF que começa em **GO** e busca de cidade com
+    autocomplete que começa em **Caiapônia**; os dois podem ser alterados. O
+    código de Caiapônia vem dos dados baixados, nunca fixado de memória.
+  - Registros existentes com cidade em texto livre: a migration tenta casar com
+    a tabela (nome normalizado sem acento e sem caixa + UF). Os que não casarem
+    ficam sem código e aparecem como "Cidade a revisar" para o dono corrigir.
+- **Duplicados:** ao cadastrar, se nome normalizado (sem acento, sem diferença
+  de maiúsculas), cidade e clube coincidirem com um atleta existente, o sistema
+  avisa "Possível atleta já cadastrado" com as opções **Usar o existente** e
+  **Cadastrar mesmo assim**. É só aviso; não bloqueia. A busca considera só o
+  que o usuário já vê (os dele e os compartilhados com ele); gerentes procuram
+  em todos. Nada de outro usuário vaza para um User.
+- Migration **aditiva**: tabelas de UFs, municípios e notas; colunas novas e
+  opcionais `club`, `document` e `cityCode` em atleta e `cityCode` em arena.
 
 ## 7. PDF da súmula de sorteio (decidido)
 
@@ -413,7 +450,8 @@ Cada fase termina implantável e validada (seção 8).
 2. **Cadastros** — atletas, arenas, provas, agenda: Server Components +
    Server Actions + services; skeletons, empty states, diálogos, toasts;
    **manejo de cadastros** com compartilhamento de atletas e arenas (seção 6.9,
-   migration aditiva).
+   migration aditiva); clube, notas privadas, localidades IBGE e aviso de
+   duplicados no cadastro do atleta (seção 6.10).
 3. **Inscrições e sorteio** — inscrições; configuração/geração/revisão do
    sorteio da prova a partir das inscrições (quebra de
    `DrawConfiguration`/`TransferList`); transação de versão; regra de refazer;
