@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '../ui';
@@ -13,12 +14,17 @@ export interface ShellUser {
   role: string;
 }
 
-export function Brand() {
-  return (
-    <span className="font-display text-xl font-bold uppercase leading-none tracking-wide text-ink-strong">
-      Arena Pro
-    </span>
-  );
+/** `full`: logo compacta (menu lateral e drawer). `bar`: símbolo + nome (barra superior do celular). */
+export function Brand({ variant = 'full' }: { variant?: 'full' | 'bar' }) {
+  if (variant === 'bar') {
+    return (
+      <span className="flex items-center gap-2">
+        <Image src="/brand/arena-pro-simbolo.svg" alt="" width={295} height={228} unoptimized className="h-8 w-auto" />
+        <span className="font-display text-xl font-bold uppercase leading-none tracking-wide text-ink-strong">Arena Pro</span>
+      </span>
+    );
+  }
+  return <Image src="/brand/arena-pro-logo-compacta.svg" alt="Arena Pro" width={392} height={244} unoptimized className="h-auto w-[184px]" />;
 }
 
 export function SidebarNav({ navItems, user, onNavigate }: { navItems: SerializableNavItem[]; user: ShellUser; onNavigate?: () => void }) {

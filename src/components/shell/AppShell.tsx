@@ -30,7 +30,7 @@ export function AppShell({ user, navItems, children }: AppShellProps) {
         >
           <Menu className="h-5 w-5" aria-hidden="true" />
         </button>
-        <Brand />
+        <Brand variant="bar" />
       </header>
 
       <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)}>
