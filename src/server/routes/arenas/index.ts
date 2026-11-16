@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { getAuthenticatedUser } from '../../auth';
 import { prisma } from '../../prisma';
+import { findArenasRaw } from '../../services/raw';
 
 interface VercelRequest {
   method?: string;
@@ -35,10 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === 'GET') {
     const ownerId = typeof req.query?.ownerId === 'string' ? req.query.ownerId : undefined;
-    const arenas = await prisma.arena.findMany({
-      where: { active: true, ...(user.role === 'USER' ? { ownerId: user.id } : ownerId ? { ownerId } : {}) },
-      orderBy: [{ name: 'asc' }, { city: 'asc' }],
-    });
+    const arenas = await findArenasRaw(user, { ownerId });
     return res.status(200).json(arenas);
   }
 

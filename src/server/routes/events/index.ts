@@ -1,5 +1,6 @@
 import { getAuthenticatedUser } from '../../auth';
 import { prisma } from '../../prisma';
+import { findEventsRaw } from '../../services/raw';
 import { z } from 'zod';
 
 interface VercelRequest {
@@ -82,15 +83,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).json({ message: 'Método não permitido.' });
 
   const ownerId = typeof req.query?.ownerId === 'string' ? req.query.ownerId : undefined;
-  const events = await prisma.event.findMany({
-    include: {
-      arena: { select: { id: true, name: true, city: true, state: true } },
-      createdBy: { select: { id: true, name: true, email: true } },
-      _count: { select: { registrations: true, draws: true } },
-    },
-    where: user.role === 'USER' ? { createdById: user.id } : ownerId ? { createdById: ownerId } : undefined,
-    orderBy: { eventDate: 'desc' },
-  });
+  const events = await findEventsRaw(user, { ownerId });
 
   return res.status(200).json(events);
 }

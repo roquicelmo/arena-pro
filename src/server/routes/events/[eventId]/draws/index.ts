@@ -3,6 +3,7 @@ import { executeGroupCrossDraw } from '../../../../../utils/drawAlgorithm';
 import type { Competitor, DrawConfig } from '../../../../../types/roping';
 import { getAuthenticatedUser } from '../../../../auth';
 import { prisma } from '../../../../prisma';
+import { findDrawsRaw } from '../../../../services/raw';
 
 interface VercelRequest {
   method?: string;
@@ -66,20 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!event || (user.role === 'USER' && event.createdById !== user.id)) return res.status(404).json({ message: 'Prova não encontrada.' });
 
   if (req.method === 'GET') {
-    const draws = await prisma.draw.findMany({
-      where: { eventId },
-      include: {
-        runs: {
-          orderBy: { runNumber: 'asc' },
-          include: {
-            headAthlete: { select: { id: true, registrationNo: true, name: true, city: true, headHandicap: true, heelHandicap: true } },
-            heelAthlete: { select: { id: true, registrationNo: true, name: true, city: true, headHandicap: true, heelHandicap: true } },
-            times: { orderBy: { bullNumber: 'asc' } },
-          },
-        },
-      },
-      orderBy: { version: 'desc' },
-    });
+    const draws = await findDrawsRaw(eventId);
     return res.status(200).json(draws);
   }
 

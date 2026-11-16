@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { getAuthenticatedUser } from '../../../../auth';
 import { prisma } from '../../../../prisma';
+import { findRegistrationsRaw } from '../../../../services/raw';
 
 interface VercelRequest {
   method?: string;
@@ -46,23 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (user.role === 'USER' && owner?.createdById !== user.id) return res.status(404).json({ message: 'Prova não encontrada.' });
 
   if (req.method === 'GET') {
-    const registrations = await prisma.eventRegistration.findMany({
-      where: { eventId, status: 'ACTIVE' },
-      include: {
-        athlete: {
-          select: {
-            id: true,
-            registrationNo: true,
-            name: true,
-            city: true,
-            state: true,
-            headHandicap: true,
-            heelHandicap: true,
-          },
-        },
-      },
-      orderBy: [{ category: 'asc' }, { athlete: { name: 'asc' } }],
-    });
+    const registrations = await findRegistrationsRaw(eventId);
     return res.status(200).json(registrations);
   }
 
