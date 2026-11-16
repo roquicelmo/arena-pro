@@ -4,7 +4,7 @@ import { getCurrentUser } from '../../src/server/session';
 import { safeNextPath } from '../../src/lib/safeNextPath';
 import { LoginForm } from './LoginForm';
 
-export const metadata: Metadata = { title: 'Sorteios Lagoa | Entrar' };
+export const metadata: Metadata = { title: 'Arena Pro | Entrar' };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string | string[]; reason?: string | string[] }> }) {
   const params = await searchParams;
@@ -15,7 +15,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <main className="flex min-h-screen bg-sand">
       <aside className="relative hidden flex-1 flex-col justify-between overflow-hidden bg-nav p-12 lg:flex" aria-hidden="true">
-        <p className="font-display text-xl font-bold uppercase tracking-widest text-ink-strong">Sorteios Lagoa</p>
+        <p className="font-display text-xl font-bold uppercase tracking-widest text-ink-strong">Arena Pro</p>
         <p className="font-display text-7xl font-bold uppercase leading-[0.95] tracking-tight text-ink-strong xl:text-8xl">
           Provas de laço
           <br />

@@ -16,7 +16,7 @@ export interface ShellUser {
 export function Brand() {
   return (
     <span className="font-display text-xl font-bold uppercase leading-none tracking-wide text-ink-strong">
-      Sorteios Lagoa
+      Arena Pro
     </span>
   );
 }

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { UiShowcase } from './UiShowcase';
 
-export const metadata = { title: 'Vitrine de componentes | Sorteios Lagoa' };
+export const metadata = { title: 'Vitrine de componentes | Arena Pro' };
 
 /** Vitrine das primitivas de UI — disponível apenas em desenvolvimento. */
 export default function UiShowcasePage() {

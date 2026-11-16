@@ -1,4 +1,4 @@
-# Sorteios Lagoa — Referência técnica completa
+# Arena Pro — Referência técnica completa
 
 > Documento consolidado da arquitetura, estrutura, banco de dados, APIs,
 > autenticação, deploy, configurações, fluxos, skills utilizadas e pendências
@@ -10,7 +10,7 @@
 
 ## 1. Visão geral
 
-O Sorteios Lagoa é uma plataforma SaaS para gestão de provas de laço em dupla.
+O Arena Pro é uma plataforma SaaS para gestão de provas de laço em dupla.
 O sistema cobre o fluxo operacional desde o cadastro até a publicação do
 resultado:
 

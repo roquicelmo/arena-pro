@@ -1,11 +1,11 @@
 ---
 trigger: always_on
-description: Regras visuais, diretrizes de layout e convenções de interface do usuário para o projeto Sorteios Lagoa (Team Roping Pro)
+description: Regras visuais, diretrizes de layout e convenções de interface do usuário para o projeto Arena Pro
 ---
 
 # Regras de Layout e Padrões Visuais (layout-rules.md)
 
-Este documento define as regras mandatórias de design, layout e comportamento visual do projeto **Sorteios Lagoa (Team Roping Pro)**.
+Este documento define as regras mandatórias de design, layout e comportamento visual do projeto **Arena Pro**.
 Toda alteração de interface ou nova funcionalidade DEVE seguir estritamente as diretrizes abaixo.
 
 ---

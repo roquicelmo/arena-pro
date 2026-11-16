@@ -1,8 +1,8 @@
-# Sorteios Lagoa — documentação técnica
+# Arena Pro — documentação técnica
 
 ## 1. Visão geral
 
-Sorteios Lagoa é uma aplicação web para gestão de provas de laço em dupla:
+Arena Pro é uma aplicação web para gestão de provas de laço em dupla:
 
 - cadastro persistente de atletas e arenas;
 - criação e administração de provas;
