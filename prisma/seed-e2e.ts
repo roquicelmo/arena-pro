@@ -1,7 +1,7 @@
 import { assertTestDatabaseUrl } from '../scripts/assert-local-db.mjs';
 import { PrismaClient, type UserRole } from '@prisma/client';
 import { hash } from 'bcryptjs';
-import { TEST_EVENTS, TEST_SHARED_ATHLETE, TEST_USERS } from '../e2e/fixtures/users';
+import { TEST_ARENAS, TEST_EVENTS, TEST_SHARED_ATHLETE, TEST_USERS } from '../e2e/fixtures/users';
 
 const databaseUrl = process.env.DATABASE_URL;
 try {
@@ -69,8 +69,8 @@ async function main() {
   const userB = await upsertUser('userB');
   await upsertUser('blocked');
   const cityCode = await resolveCityCode('Lagoa da Prata', 'MG');
-  await seedOwner(userA.id, cityCode, 'ARENA E2E A', TEST_EVENTS.userA, ATHLETES_USER_A);
-  await seedOwner(userB.id, cityCode, 'ARENA E2E B', TEST_EVENTS.userB, ATHLETES_USER_B);
+  await seedOwner(userA.id, cityCode, TEST_ARENAS.userA, TEST_EVENTS.userA, ATHLETES_USER_A);
+  await seedOwner(userB.id, cityCode, TEST_ARENAS.userB, TEST_EVENTS.userB, ATHLETES_USER_B);
   const shared = await prisma.athlete.findFirstOrThrow({ where: { name: TEST_SHARED_ATHLETE, ownerId: userB.id } });
   await prisma.athleteShare.create({ data: { athleteId: shared.id, userId: userA.id } });
   console.log('Seed de e2e concluído.');

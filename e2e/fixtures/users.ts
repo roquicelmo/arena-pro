@@ -19,3 +19,8 @@ export const TEST_EVENTS = {
   userA: 'PROVA E2E USER A',
   userB: 'PROVA E2E USER B',
 } as const;
+
+export const TEST_ARENAS = {
+  userA: 'ARENA E2E A',
+  userB: 'ARENA E2E B',
+} as const;
