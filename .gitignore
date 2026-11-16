@@ -29,3 +29,5 @@ dist-ssr
 # Superpowers brainstorm mockups
 .superpowers/
 !.env.local.example
+playwright-report/
+test-results/

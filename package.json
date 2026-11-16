@@ -18,7 +18,8 @@
     "db:local:seed": "dotenv -e .env.local -- sh -c \"node scripts/assert-local-db.mjs && prisma db seed\"",
     "db:test:reset": "dotenv -e .env.local -- node scripts/with-test-db.mjs node scripts/reset-test-db.mjs",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -39,6 +40,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/postcss": "^4.3.5",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.3",
@@ -48,6 +50,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "autoprefixer": "^10.6.1",
+    "dotenv": "^17.4.2",
     "dotenv-cli": "^8.0.0",
     "jsdom": "^26.1.0",
     "oxlint": "^1.81.0",

@@ -63,7 +63,11 @@ export interface AuthenticatedUser {
 }
 
 export const getAuthenticatedUser = async (headers: Headers): Promise<AuthenticatedUser | null> => {
-  const request = new Request('https://localhost/api/auth/session', { headers });
+  // O protocolo define o nome do cookie que o Auth.js procura:
+  // https → `__Secure-authjs.session-token`; http (localhost) → `authjs.session-token`.
+  const protocol = headers.get('x-forwarded-proto')?.split(',')[0]?.trim() === 'http' ? 'http' : 'https';
+  const host = headers.get('host') ?? 'localhost';
+  const request = new Request(`${protocol}://${host}/api/auth/session`, { headers });
   const response = await Auth(request, authConfig);
   if (!response.ok) return null;
 
