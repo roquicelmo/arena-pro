@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Competitor } from '../../types/roping';
 import { useAction } from '../../lib/useAction';
 import type { AthleteFormInput } from '../../lib/schemas/cadastros';
@@ -28,14 +28,15 @@ const formatHandicap = (value: number | undefined) => (value === undefined ? '2.
 
 export function AthleteFormDialog(props: AthleteFormDialogProps) {
   const { open, onClose, athlete } = props;
+  const [busy, setBusy] = useState(false);
   return (
-    <Dialog open={open} onClose={onClose} title={athlete ? 'Editar atleta' : 'Novo atleta'}>
-      <AthleteForm key={athlete?.id ?? 'new'} {...props} />
+    <Dialog open={open} onClose={onClose} busy={busy} title={athlete ? 'Editar atleta' : 'Novo atleta'}>
+      <AthleteForm key={athlete?.id ?? 'new'} {...props} onBusyChange={setBusy} />
     </Dialog>
   );
 }
 
-function AthleteForm({ onClose, athlete, states, defaultCity, showOwner = false, onSaved, onUseExisting }: AthleteFormDialogProps) {
+function AthleteForm({ onClose, athlete, states, defaultCity, showOwner = false, onSaved, onUseExisting, onBusyChange }: AthleteFormDialogProps & { onBusyChange: (busy: boolean) => void }) {
   const needsReview = Boolean(athlete?.cityNeedsReview);
   const initialCity: CityValue = athlete
     ? needsReview || athlete.cityCode === undefined
@@ -58,6 +59,9 @@ function AthleteForm({ onClose, athlete, states, defaultCity, showOwner = false,
     : createAthleteAction;
   const save = useAction(saveAction, { successMessage: athlete ? 'Atleta atualizado.' : 'Atleta cadastrado.' });
   const busy = checking || save.pending;
+  useEffect(() => {
+    onBusyChange(busy);
+  }, [busy, onBusyChange]);
 
   const input = (): AthleteFormInput => ({
     name,

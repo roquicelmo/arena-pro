@@ -126,4 +126,18 @@ describe('AthleteFormDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Salvar atleta' }));
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
+
+  it('com o salvamento pendente, Esc não fecha o diálogo', async () => {
+    let resolve!: (value: unknown) => void;
+    actions.createAthleteAction.mockReturnValue(new Promise((r) => { resolve = r; }));
+    const { user, onClose } = setup();
+    await user.type(screen.getByLabelText('Nome'), 'Zé Lima');
+    await user.click(screen.getByRole('button', { name: 'Salvar atleta' }));
+    await waitFor(() => expect(actions.createAthleteAction).toHaveBeenCalled());
+    await user.keyboard('{Escape}');
+    expect(onClose).not.toHaveBeenCalled();
+    resolve({ ok: false, message: 'Erro.' });
+    expect(await screen.findByText('Erro.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Nome')).toHaveValue('Zé Lima');
+  });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Competitor } from '../../types/roping';
 import { useAction } from '../../lib/useAction';
 import { saveAthleteNoteAction } from '../../server/actions/athletes';
@@ -15,17 +15,21 @@ export interface AthleteNotesDialogProps {
 }
 
 export function AthleteNotesDialog({ open, onClose, athlete, initialBody, onSaved }: AthleteNotesDialogProps) {
+  const [busy, setBusy] = useState(false);
   return (
-    <Dialog open={open && athlete !== null} onClose={onClose} title={`Notas sobre ${athlete?.nome ?? ''}`} description="Só você vê estas notas.">
-      {athlete && <NotesForm key={athlete.id} athlete={athlete} initialBody={initialBody} onClose={onClose} onSaved={onSaved} />}
+    <Dialog open={open && athlete !== null} onClose={onClose} busy={busy} title={`Notas sobre ${athlete?.nome ?? ''}`} description="Só você vê estas notas.">
+      {athlete && <NotesForm key={athlete.id} athlete={athlete} initialBody={initialBody} onClose={onClose} onSaved={onSaved} onBusyChange={setBusy} />}
     </Dialog>
   );
 }
 
-function NotesForm({ athlete, initialBody, onClose, onSaved }: Omit<AthleteNotesDialogProps, 'open' | 'athlete'> & { athlete: Competitor }) {
+function NotesForm({ athlete, initialBody, onClose, onSaved, onBusyChange }: Omit<AthleteNotesDialogProps, 'open' | 'athlete'> & { athlete: Competitor; onBusyChange: (busy: boolean) => void }) {
   const [body, setBody] = useState(initialBody);
   const save = useAction((input: { body: string }) => saveAthleteNoteAction(athlete.id, input), { successMessage: 'Notas salvas.' });
   const error = save.fieldErrors.body?.[0];
+  useEffect(() => {
+    onBusyChange(save.pending);
+  }, [save.pending, onBusyChange]);
 
   return (
     <form
