@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { authClient } from '../../src/auth/session';
@@ -33,7 +34,9 @@ export function LoginForm({ next = '/', expired = false }: { next?: string; expi
 
   return (
     <section className="w-full max-w-md rounded-ui border border-line bg-surface p-7 sm:p-9">
-      <p className="font-display text-sm font-bold uppercase tracking-widest text-accent-ink">Arena Pro</p>
+      {/* No desktop a logo grande fica na coluna da foto; no celular ela abre o cartão. */}
+      <Image src="/brand/arena-pro-logo.svg" alt="Arena Pro" width={1298} height={614} unoptimized className="mx-auto mb-2 h-auto w-[220px] lg:hidden" />
+      <p className="hidden font-display text-sm font-bold uppercase tracking-widest text-accent-ink lg:block">Arena Pro</p>
 
       {mode === 'login' ? (
         <>
