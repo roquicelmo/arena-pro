@@ -12,7 +12,12 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
-    "start": "next start"
+    "start": "next start",
+    "db:local:up": "docker compose up -d --wait",
+    "db:local:migrate": "dotenv -e .env.local -- sh -c \"node scripts/assert-local-db.mjs && prisma migrate deploy\"",
+    "db:local:seed": "dotenv -e .env.local -- sh -c \"node scripts/assert-local-db.mjs && prisma db seed\"",
+    "db:test:reset": "dotenv -e .env.local -- node scripts/with-test-db.mjs npm run --silent db:test:reset:inner",
+    "db:test:reset:inner": "node scripts/assert-local-db.mjs && prisma migrate reset --force --skip-seed && tsx prisma/seed-e2e.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -38,6 +43,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "autoprefixer": "^10.6.1",
+    "dotenv-cli": "^8.0.0",
     "oxlint": "^1.81.0",
     "postcss": "^8.5.29",
     "prisma": "^6.19.0",

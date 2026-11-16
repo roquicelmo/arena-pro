@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: sorteios-lagoa-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sorteios_lagoa_dev
+    ports:
+      - "54329:5432"
+    volumes:
+      - sorteios-lagoa-pgdata:/var/lib/postgresql/data
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sorteios_lagoa_dev"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  sorteios-lagoa-pgdata:

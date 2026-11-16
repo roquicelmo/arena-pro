@@ -28,3 +28,4 @@ dist-ssr
 
 # Superpowers brainstorm mockups
 .superpowers/
+!.env.local.example
