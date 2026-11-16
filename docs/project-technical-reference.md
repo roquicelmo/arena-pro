@@ -1374,6 +1374,10 @@ prisma/migrations/20261116120000_add_record_shares/
 prisma/migrations/20261116130000_add_localities_club_notes/
 ```
 
+### Ordem de deploy em produção
+
+Antes de promover o deploy na Vercel, rode `npm run db:deploy` contra o banco de produção. O código novo consulta `cityCode` e os compartilhamentos; se ele entrar no ar antes das migrations, toda consulta de atletas e arenas falha e `getDefaultCity()` lança, deixando `/atletas`, `/provas` e `/sorteio-avulso` com erro 500. Essa ordem é segura porque as migrations são aditivas: o código anterior continua funcionando com o banco já migrado. O build (`prisma generate && next build`) não aplica migrations e não há CI que as aplique.
+
 ### Migration inicial
 
 Cria o domínio principal:

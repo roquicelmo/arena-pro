@@ -158,15 +158,17 @@ function AthleteForm({ onClose, athlete, states, defaultCity, showOwner = false,
             ))}
           </ul>
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                onClose();
-                onUseExisting?.(duplicates[0].id);
-              }}
-            >
-              Usar o existente
-            </Button>
+            {onUseExisting && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  onClose();
+                  onUseExisting(duplicates[0].id);
+                }}
+              >
+                Usar o existente
+              </Button>
+            )}
             <Button variant="ghost" loading={busy} onClick={() => void forceCreate()}>
               Cadastrar mesmo assim
             </Button>

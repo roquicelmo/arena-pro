@@ -1,5 +1,5 @@
 import 'server-only';
-import { eventStatusBadge } from '../../components/ui/Badge';
+import { eventStatusBadge } from '../../lib/eventStatus';
 import { prisma } from '../prisma';
 import { OPERATOR_ROLES } from '../permissions';
 import { accessScope, eventScope } from './scope';

@@ -15,12 +15,13 @@ interface QuickDrawClientProps {
   athletes: Competitor[];
   states: Array<{ uf: string; name: string }>;
   defaultCity: { code: number; name: string; uf: string };
+  canFilterOwners?: boolean;
 }
 
 const EMPTY_TIMES: Run['times'] = { boi1: '', boi2: '', boi3: '', boi1Nt: false, boi2Nt: false, boi3Nt: false };
 
 /** Wizard do sorteio avulso: tudo em estado local, nada é persistido (PDF na fase 3). */
-export function QuickDrawClient({ athletes, states, defaultCity }: QuickDrawClientProps) {
+export function QuickDrawClient({ athletes, states, defaultCity, canFilterOwners = false }: QuickDrawClientProps) {
   const [step, setStep] = useState<WizardStep>(1);
   const [pezeiros, setPezeiros] = useState<Competitor[]>([]);
   const [cabeceiros, setCabeceiros] = useState<Competitor[]>([]);
@@ -134,6 +135,7 @@ export function QuickDrawClient({ athletes, states, defaultCity }: QuickDrawClie
         onClose={() => setIsModalOpen(false)}
         states={states}
         defaultCity={defaultCity}
+        showOwner={canFilterOwners}
       />
     </>
   );

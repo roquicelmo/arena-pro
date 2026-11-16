@@ -33,7 +33,9 @@ export async function createAthleteAction(input: AthleteFormInput): Promise<Acti
 export async function updateAthleteAction(id: string, input: AthleteFormInput): Promise<ActionResult<Competitor>> {
   return runAction(
     { schema: athleteSchema.extend({ id: idSchema }), input: { ...(input as object), id }, revalidate: REVALIDATE },
-    async (user, { id: athleteId, ...data }) => toCompetitor(toPersisted(await updateAthlete(user, athleteId, data))),
+    async (user, { id: athleteId, ...data }) =>
+      // Campo opcional em branco vira null para limpar o valor (undefined significa "não alterar" no command).
+      toCompetitor(toPersisted(await updateAthlete(user, athleteId, { ...data, nickname: data.nickname ?? null, club: data.club ?? null }))),
   );
 }
 

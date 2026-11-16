@@ -25,15 +25,4 @@ export function Badge({ tone = 'neutral', className, children }: { tone?: BadgeT
   );
 }
 
-export type EventStatus = 'DRAFT' | 'OPEN' | 'DRAWN' | 'IN_PROGRESS' | 'FINISHED' | 'CANCELLED';
-
-const EVENT_STATUS: Record<EventStatus, { label: string; tone: BadgeTone }> = {
-  DRAFT: { label: 'Aberta', tone: 'neutral' },
-  OPEN: { label: 'Aberta', tone: 'neutral' },
-  DRAWN: { label: 'Sorteada', tone: 'accent' },
-  IN_PROGRESS: { label: 'Em andamento', tone: 'warning' },
-  FINISHED: { label: 'Finalizada', tone: 'success' },
-  CANCELLED: { label: 'Cancelada', tone: 'danger' },
-};
-
-export const eventStatusBadge = (status: EventStatus) => EVENT_STATUS[status];
+export { eventStatusBadge, type EventStatus } from '../../lib/eventStatus';

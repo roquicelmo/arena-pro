@@ -37,7 +37,8 @@ export function ShareDialog(props: ShareDialogProps) {
 function ShareForm({ onClose, mode, type, ids, users, onDone, onBusyChange }: ShareDialogProps & { onBusyChange: (busy: boolean) => void }) {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
-  const share = useAction(shareRecordsAction, { successMessage: () => `Compartilhado com ${selected.length} usuário(s).` });
+  const share = useAction(shareRecordsAction, { successMessage: (data) =>
+      data.added > 0 ? `Compartilhado com ${data.added} usuário(s).` : 'Nenhum compartilhamento novo: os usuários já tinham acesso.', });
   const unshare = useAction(unshareRecordsAction, { successMessage: 'Compartilhamento removido.' });
   const action = mode === 'share' ? share : unshare;
   useEffect(() => {

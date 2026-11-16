@@ -22,7 +22,7 @@ const registrationInclude = {
 export const findAthletesRaw = (user: ScopeUser, opts: { ownerId?: string } = {}) =>
   prisma.athlete.findMany({
     where: { active: true, ...accessScope(user, opts.ownerId) },
-    include: { owner: { select: { id: true, name: true, email: true } } },
+    include: { owner: { select: { id: true, name: true } } },
     orderBy: { name: 'asc' },
   });
 

@@ -1,6 +1,7 @@
 import { PageHeader } from '../../../src/components/ui';
 import { listAthletes } from '../../../src/server/services/athletes';
 import { getDefaultCity, listStates } from '../../../src/server/services/localities';
+import { isAdmin, isManager } from '../../../src/server/permissions';
 import { requireUser } from '../../../src/server/session';
 import { QuickDrawClient } from './QuickDrawClient';
 
@@ -15,6 +16,7 @@ export default async function SorteioAvulsoPage() {
           athletes={athletes}
           states={states}
           defaultCity={defaultCity}
+          canFilterOwners={isAdmin(user.role) || isManager(user.role)}
         />
       </div>
     </main>

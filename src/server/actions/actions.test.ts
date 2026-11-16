@@ -27,9 +27,9 @@ const ar = await import('./arenas');
 const ev = await import('./events');
 
 const user = { id: 'u1', role: 'USER' };
-const athleteInput = { name: 'Zé', headHandicap: '2,5', heelHandicap: 3, cityCode: '5203500', nickname: 'Zeca' };
+const athleteInput = { name: 'Zé', headHandicap: '2,5', heelHandicap: 3, cityCode: '5204409', nickname: 'Zeca' };
 const dbAthlete = {
-  id: 'a1', registrationNo: null, name: 'Zé', nickname: 'Zeca', club: null, city: 'Caiapônia', state: 'GO', cityCode: 5203500,
+  id: 'a1', registrationNo: null, name: 'Zé', nickname: 'Zeca', club: null, city: 'Caiapônia', state: 'GO', cityCode: 5204409,
   headHandicap: { toString: () => '2.5' }, heelHandicap: { toString: () => '3' }, ownerId: 'u1',
 };
 
@@ -43,7 +43,7 @@ describe('atletas', () => {
   it('createAthleteAction devolve o Competitor mapeado e revalida /atletas, / e /sorteio-avulso', async () => {
     athletes.createAthlete.mockResolvedValue(dbAthlete);
     const result = await a.createAthleteAction(athleteInput);
-    expect(athletes.createAthlete).toHaveBeenCalledWith(user, expect.objectContaining({ name: 'Zé', headHandicap: 2.5, heelHandicap: 3, cityCode: 5203500 }));
+    expect(athletes.createAthlete).toHaveBeenCalledWith(user, expect.objectContaining({ name: 'Zé', headHandicap: 2.5, heelHandicap: 3, cityCode: 5204409 }));
     expect(result).toMatchObject({ ok: true, data: { id: 'a1', nome: 'Zé', apelido: 'Zeca', estado: 'GO', cityNeedsReview: false, headHandicap: 2.5 } });
     expect(revalidatePath.mock.calls.map((c) => c[0])).toEqual(['/atletas', '/', '/sorteio-avulso']);
   });
@@ -64,6 +64,12 @@ describe('atletas', () => {
     athletes.updateAthlete.mockResolvedValue(dbAthlete);
     await a.updateAthleteAction('a1', athleteInput);
     expect(athletes.updateAthlete).toHaveBeenCalledWith(user, 'a1', expect.not.objectContaining({ id: expect.anything() }));
+  });
+
+  it('updateAthleteAction envia null para apelido e clube em branco (limpar)', async () => {
+    athletes.updateAthlete.mockResolvedValue(dbAthlete);
+    await a.updateAthleteAction('a1', { ...athleteInput, nickname: '', club: '  ' });
+    expect(athletes.updateAthlete).toHaveBeenCalledWith(user, 'a1', expect.objectContaining({ nickname: null, club: null }));
   });
 
   it('deactivateAthleteAction valida o id e revalida', async () => {
@@ -88,8 +94,8 @@ describe('atletas', () => {
 
 describe('arenas', () => {
   it('createArenaAction cria e revalida /provas', async () => {
-    arenas.createArena.mockResolvedValue({ created: true, arena: { id: 'r1', name: 'Lagoa', city: 'Caiapônia', state: 'GO', cityCode: 5203500, ownerId: 'u1' } });
-    expect(await ar.createArenaAction({ name: 'Lagoa', cityCode: 5203500 })).toMatchObject({ ok: true, data: { id: 'r1', cityCode: 5203500 } });
+    arenas.createArena.mockResolvedValue({ created: true, arena: { id: 'r1', name: 'Lagoa', city: 'Caiapônia', state: 'GO', cityCode: 5204409, ownerId: 'u1' } });
+    expect(await ar.createArenaAction({ name: 'Lagoa', cityCode: 5204409 })).toMatchObject({ ok: true, data: { id: 'r1', cityCode: 5204409 } });
     expect(revalidatePath.mock.calls.map((c) => c[0])).toEqual(['/provas']);
   });
 
@@ -119,10 +125,10 @@ describe('arenas', () => {
 describe('provas', () => {
   it('createEventAction converte a data para meio-dia UTC e cria a arena nova', async () => {
     events.createEvent.mockResolvedValue({ id: 'e1' });
-    const result = await ev.createEventAction({ name: 'Copa', eventDate: '2026-12-05', arenaName: 'Lagoa', cityCode: '5203500' });
+    const result = await ev.createEventAction({ name: 'Copa', eventDate: '2026-12-05', arenaName: 'Lagoa', cityCode: '5204409' });
     expect(result).toEqual({ ok: true, data: { id: 'e1' } });
     expect(events.createEvent).toHaveBeenCalledWith(user, {
-      name: 'Copa', eventDate: new Date('2026-12-05T12:00:00.000Z'), newArena: { name: 'Lagoa', cityCode: 5203500 },
+      name: 'Copa', eventDate: new Date('2026-12-05T12:00:00.000Z'), newArena: { name: 'Lagoa', cityCode: 5204409 },
     });
     expect(revalidatePath.mock.calls.map((c) => c[0])).toEqual(['/provas', '/agenda', '/']);
   });

@@ -53,8 +53,8 @@ describe('mappers', () => {
   });
 
   it('toCompetitor mapeia apelido, estado, clube e cidade', () => {
-    const c = toCompetitor(athleteFixture({ nickname: 'Zeca', state: 'GO', club: 'Lagoa', city: 'Caiapônia', cityCode: 5203500 }));
-    expect(c).toMatchObject({ apelido: 'Zeca', estado: 'GO', clube: 'Lagoa', cityCode: 5203500, cityNeedsReview: false });
+    const c = toCompetitor(athleteFixture({ nickname: 'Zeca', state: 'GO', club: 'Lagoa', city: 'Caiapônia', cityCode: 5204409 }));
+    expect(c).toMatchObject({ apelido: 'Zeca', estado: 'GO', clube: 'Lagoa', cityCode: 5204409, cityNeedsReview: false });
   });
 
   it('sinaliza cidade em texto sem código para revisão', () => {
