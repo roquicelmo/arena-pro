@@ -17,7 +17,6 @@ import { TransferList } from './components/TransferList';
 import { DrawConfiguration } from './components/DrawConfiguration';
 import { RunsTable } from './components/RunsTable';
 import { NewCompetitorModal } from './components/NewCompetitorModal';
-import { LoginPage } from './components/LoginPage';
 import { AthletesPage } from './components/AthletesPage';
 import { EventsPage } from './components/EventsPage';
 import type { EventSummary } from './types/events';
@@ -33,8 +32,12 @@ import { authClient, type AuthSession } from './auth/session';
 import { Menu, Trophy } from 'lucide-react';
 import { mapPersistedRuns, toCompetitor, toEventSummary, type PersistedAthlete, type PersistedEvent, type PersistedRun } from './lib/mappers';
 
-export const App: React.FC = () => {
-  const [authSession, setAuthSession] = useState<AuthSession | null | undefined>(undefined);
+interface AppProps {
+  initialSession?: AuthSession;
+}
+
+export const App: React.FC<AppProps> = ({ initialSession }) => {
+  const [authSession, setAuthSession] = useState<AuthSession | null | undefined>(initialSession);
   // 1. Wizard Current Step: 1, 2, 3, 4
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
   const [showDashboard, setShowDashboard] = useState(true);
@@ -48,10 +51,11 @@ export const App: React.FC = () => {
   const [resultsPublished, setResultsPublished] = useState(false);
 
   useEffect(() => {
+    if (initialSession) return;
     void authClient.getSession()
       .then((session) => setAuthSession(session))
       .catch(() => setAuthSession(null));
-  }, []);
+  }, [initialSession]);
 
   const [drawError, setDrawError] = useState<string | null>(null);
 
@@ -534,20 +538,14 @@ export const App: React.FC = () => {
 
   const handleLogout = async () => {
     await authClient.logout();
-    setAuthSession(null);
+    window.location.assign('/login');
   };
 
   return (
     authSession === undefined ? (
       <div className="flex min-h-screen items-center justify-center bg-[#f6f8fa] text-sm font-semibold text-[#6b788b]">Carregando sessão...</div>
     ) : !authSession ? (
-      <LoginPage
-        onAuthenticated={() => {
-          void authClient.getSession().then((session) => {
-            setAuthSession(session);
-          });
-        }}
-      />
+      <div className="flex min-h-screen items-center justify-center bg-[#f6f8fa] text-sm font-semibold text-[#6b788b]">Sessão encerrada. Redirecionando...</div>
     ) : (
     <div className="flex min-h-screen bg-[#f6f8fa] text-[#2f3b4f]">
       <Sidebar

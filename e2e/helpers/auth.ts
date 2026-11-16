@@ -3,10 +3,12 @@ import { TEST_USERS, type TestUserKey } from '../fixtures/users';
 
 export async function loginAs(page: Page, user: TestUserKey) {
   const { email, password } = TEST_USERS[user];
-  await page.goto('/');
-  await page.getByPlaceholder('seu@email.com').fill(email);
-  await page.getByPlaceholder('Digite sua senha').fill(password);
+  await page.context().clearCookies();
+  await page.goto('/login');
+  await page.getByLabel('E-mail').fill(email);
+  await page.getByLabel('Senha', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+  await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole('heading', { name: /painel geral/i })).toBeVisible();
 }
 

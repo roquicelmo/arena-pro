@@ -70,7 +70,7 @@ export const authClient = {
       throw new Error('E-mail ou senha inválidos.');
     }
     const session = await authClient.getSession();
-    if (!session) throw new Error('Não foi possível confirmar a sessão.');
+    if (!session) throw new Error('E-mail ou senha inválidos.');
     return session;
   },
 

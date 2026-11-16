@@ -10,8 +10,8 @@ test('login do admin abre o painel sem erros no console', async ({ page }) => {
 });
 
 test('sem scroll horizontal no login e no painel', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.getByPlaceholder('Digite sua senha')).toBeVisible();
+  await page.goto('/login');
+  await expect(page.getByLabel('Senha', { exact: true })).toBeVisible();
   expect(await hasNoHorizontalScroll(page)).toBe(true);
   await loginAs(page, 'admin');
   expect(await hasNoHorizontalScroll(page)).toBe(true);
