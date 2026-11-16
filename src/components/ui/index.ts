@@ -2,6 +2,7 @@ export { Badge, eventStatusBadge, type BadgeTone, type EventStatus } from './Bad
 export { Button, type ButtonProps } from './Button';
 export { cn } from './cn';
 export { ConfirmProvider, useConfirm, type ConfirmOptions } from './ConfirmDialog';
+export { Dialog } from './Dialog';
 export { EmptyState } from './EmptyState';
 export { Input, type InputProps } from './Input';
 export { PageHeader } from './PageHeader';
