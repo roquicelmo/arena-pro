@@ -148,6 +148,8 @@ export const App: React.FC = () => {
   }, [authSession]);
 
   useEffect(() => {
+    if (!authSession) return;
+
     let active = true;
     const loadApiData = async () => {
       const [athletesResponse, eventsResponse, arenasResponse] = await Promise.all([
@@ -225,7 +227,7 @@ export const App: React.FC = () => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [authSession]);
 
   // 3. State: Lista de Pezeiros selecionados (inicia vazia para seleção manual)
   const [selectedPezeiros, setSelectedPezeiros] = useState<Competitor[]>([]);
