@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { Competitor } from '../../types/roping';
+import { formBannerMessage } from '../../lib/actionResult';
 import { useAction } from '../../lib/useAction';
 import type { AthleteFormInput } from '../../lib/schemas/cadastros';
 import { checkAthleteDuplicatesAction, createAthleteAction, updateAthleteAction } from '../../server/actions/athletes';
@@ -116,13 +117,14 @@ function AthleteForm({ onClose, athlete, states, defaultCity, showOwner = false,
   };
 
   const errors = save.fieldErrors;
+  const banner = formBannerMessage(save.message, errors);
   const cityError = errors.cityCode?.[0];
 
   return (
     <form noValidate onSubmit={(event) => void submit(event)} onChange={() => duplicates && setDuplicates(null)} className="flex flex-col gap-4">
-      {save.message && (
+      {banner && (
         <p role="alert" className="rounded-ui bg-danger-soft px-3 py-2 text-sm font-medium text-danger">
-          {save.message}
+          {banner}
         </p>
       )}
       <Input label="Nome" name="name" value={name} onChange={(e) => setName(e.target.value)} error={errors.name?.[0]} maxLength={120} autoComplete="off" />

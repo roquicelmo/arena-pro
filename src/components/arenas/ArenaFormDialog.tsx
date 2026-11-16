@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { formBannerMessage } from '../../lib/actionResult';
 import { useAction } from '../../lib/useAction';
 import type { ArenaFormInput } from '../../lib/schemas/cadastros';
 import { createArenaAction, updateArenaAction } from '../../server/actions/arenas';
@@ -49,11 +50,12 @@ function ArenaForm({ onClose, arena, states, defaultCity, onBusyChange }: ArenaF
   };
 
   const errors = save.fieldErrors;
+  const banner = formBannerMessage(save.message, errors);
   return (
     <form noValidate onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
-      {save.message && (
+      {banner && (
         <p role="alert" className="rounded-ui bg-danger-soft px-3 py-2 text-sm font-medium text-danger">
-          {save.message}
+          {banner}
         </p>
       )}
       <Input label="Nome" name="name" value={name} onChange={(e) => setName(e.target.value)} error={errors.name?.[0]} maxLength={120} autoComplete="off" />

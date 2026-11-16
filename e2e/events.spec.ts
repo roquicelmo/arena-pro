@@ -77,7 +77,7 @@ test('arena duplicada mostra erro no campo e mantém o formulário', async ({ pa
   await dialog.getByLabel('UF').selectOption('MG');
   await dialog.getByLabel('Cidade').fill('Lagoa da Prata');
   await dialog.getByRole('button', { name: 'Salvar arena' }).click();
-  await expect(dialog.getByText('Já existe uma arena com esse nome nessa cidade.').first()).toBeVisible();
+  await expect(dialog.getByText('Já existe uma arena com esse nome nessa cidade.')).toBeVisible();
   await expect(dialog.getByLabel('Nome')).toHaveValue(TEST_ARENAS.userA);
   await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
 });

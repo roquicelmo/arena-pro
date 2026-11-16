@@ -56,7 +56,7 @@ describe('EventFormDialog', () => {
     await user.type(screen.getByLabelText('Data'), '2026-12-20');
     await user.selectOptions(screen.getByLabelText('Arena'), 'ar1');
     await user.click(screen.getByRole('button', { name: 'Salvar prova' }));
-    await waitFor(() => expect(screen.getAllByText(message).length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getByText(message)).toBeInTheDocument());
     expect(toast.error).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByLabelText('Nome da prova')).toHaveValue('COPA NOVA');
