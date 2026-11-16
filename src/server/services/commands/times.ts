@@ -34,7 +34,8 @@ export async function recordTime(user: ScopeUser, runId: string, input: { bullNu
     const latest = await tx.draw.findFirst({ where: { eventId }, orderBy: { version: 'desc' }, select: { id: true } });
     if (latest?.id !== run.drawId) throw new DomainError(TIME_MESSAGES.oldVersion, { status: 409 });
 
-    if (input.timeSeconds === null) {
+    // Tempo vazio sem NT apaga o boi; NT grava mesmo sem tempo.
+    if (input.timeSeconds === null && !input.isNt) {
       await tx.runTime.deleteMany({ where: { runId, bullNumber: input.bullNumber } });
     } else {
       await tx.runTime.upsert({

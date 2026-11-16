@@ -2,17 +2,16 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { RunsTable } from '../../../../../src/components/RunsTable';
+import { TrackBoard } from '../../../../../src/components/track/TrackBoard';
+import { createSerialQueue } from '../../../../../src/lib/serialQueue';
 import { toast, useConfirm } from '../../../../../src/components/ui';
 import { apiRequest, SessionExpiredError } from '../../../../../src/lib/apiClient';
-import type { DrawConfig, Run } from '../../../../../src/types/roping';
+import type { Run } from '../../../../../src/types/roping';
 import { calculateRunTotal } from '../../../../../src/utils/drawAlgorithm';
 import { trackSave, useFreshServerData } from '../useFreshServerData';
 
 interface TrackClientProps {
-  eventId: string;
   runs: Run[];
-  config: DrawConfig;
 }
 
 type Bull = 1 | 2 | 3;
@@ -45,21 +44,25 @@ const withTime = (run: Run, boi: Bull, value: string, isNt?: boolean): Run => {
 const hasAnyTime = (run: Run) =>
   Boolean(run.times.boi1 || run.times.boi2 || run.times.boi3 || run.times.boi1Nt || run.times.boi2Nt || run.times.boi3Nt);
 
+/** Gravações do mesmo boi saem em série, na ordem da digitação (o banco fica com o último valor). */
+const enqueueSave = createSerialQueue();
+
 const patchTime = (runId: string, bullNumber: number, timeSeconds: number | null, isNt: boolean) =>
-  trackSave(apiRequest(`/api/runs/${runId}/times`, {
+  trackSave(enqueueSave(`${runId}:${bullNumber}`, () => apiRequest(`/api/runs/${runId}/times`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ bullNumber, timeSeconds, isNt }),
-  }, SAVE_ERROR));
+    // keepalive: a gravação termina mesmo se a aba fechar logo depois (pagehide).
+    keepalive: true,
+  }, SAVE_ERROR)));
 
-export function TrackClient({ eventId, runs: initialRuns, config }: TrackClientProps) {
+export function TrackClient({ runs: initialRuns }: TrackClientProps) {
   const router = useRouter();
   const confirm = useConfirm();
   const [runs, setRuns] = useState(initialRuns);
   const [seed, setSeed] = useState(initialRuns);
   /** Tempos editados aqui que ainda não terminaram de gravar. */
   const [unsaved, setUnsaved] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const runsRef = useRef(runs);
   /** Instante do refresh pedido ao montar (0 = nenhum pendente) e da última edição local. */
@@ -86,16 +89,21 @@ export function TrackClient({ eventId, runs: initialRuns, config }: TrackClientP
     mountRefreshAt.current = Date.now();
   });
 
-  // Ao sair da tela, grava imediatamente o que ainda estava aguardando.
+  // Ao sair da tela (navegação ou fechar a aba), grava imediatamente o que ainda estava aguardando.
   useEffect(() => {
     const saves = pendingSaves.current;
     const timer = statusTimer;
-    return () => {
+    const flush = () => {
       for (const { timer: pending, run } of saves.values()) {
         clearTimeout(pending);
         run();
       }
       saves.clear();
+    };
+    window.addEventListener('pagehide', flush);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      flush();
       if (timer.current) clearTimeout(timer.current);
     };
   }, []);
@@ -193,20 +201,10 @@ export function TrackClient({ eventId, runs: initialRuns, config }: TrackClientP
     toast.success('Tempos limpos.');
   };
 
-  const goToDraw = () => router.push(`/provas/${eventId}/sorteio`);
 
   return (
     <>
-      <RunsTable
-        runs={runs}
-        config={config}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        onReDraw={goToDraw}
-        onBackToConfig={goToDraw}
-        onUpdateTime={onUpdateTime}
-        onClearAllTimes={() => void onClearAllTimes()}
-      />
+      <TrackBoard runs={runs} onUpdateTime={onUpdateTime} onClearAllTimes={() => void onClearAllTimes()} />
       <p
         role="status"
         aria-live="polite"

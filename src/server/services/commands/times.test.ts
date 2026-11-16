@@ -56,4 +56,10 @@ describe('recordTime', () => {
     await recordTime(user, 'r1', { bullNumber: 1, timeSeconds: null, isNt: false });
     expect(tx.runTime.deleteMany).toHaveBeenCalledWith({ where: { runId: 'r1', bullNumber: 1 } });
   });
+
+  it('NT sem tempo é gravado (não apaga o boi)', async () => {
+    await recordTime(user, 'r1', { bullNumber: 2, timeSeconds: null, isNt: true });
+    expect(tx.runTime.deleteMany).not.toHaveBeenCalled();
+    expect(tx.runTime.upsert.mock.calls[0][0].create).toMatchObject({ bullNumber: 2, timeSeconds: null, isNt: true });
+  });
 });

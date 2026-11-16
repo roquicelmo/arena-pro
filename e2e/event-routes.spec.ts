@@ -25,11 +25,9 @@ async function openTrackWithDraw(page: Page) {
   await expect(page).toHaveURL(/\/pista$/);
 }
 
-// A rota de tempos ainda recusa o papel USER (a regra "User lança tempos nas
-// próprias provas" é da fase 4 do spec), então o fluxo com tempo persistido roda
-// como admin sobre a prova do user A. O user A cobre o sorteio no teste de contraste.
+// User lança tempos nas próprias provas (spec 6.4, fase 4): o fluxo da pista roda como user A.
 test('fluxo da prova do user A: inscrições → sorteio → pista com tempo persistido', async ({ page }) => {
-  await loginAs(page, 'admin');
+  await loginAs(page, 'userA');
   await openEvent(page, TEST_EVENTS.userA);
   await tab(page, 'Inscrições').click();
   await expect(page.getByText('CABECEIRO A1')).toBeVisible();
@@ -43,7 +41,7 @@ test('fluxo da prova do user A: inscrições → sorteio → pista com tempo per
 });
 
 test('tempo editado na pista continua após trocar de aba e voltar', async ({ page }) => {
-  await loginAs(page, 'admin');
+  await loginAs(page, 'userA');
   await openEvent(page, TEST_EVENTS.userA);
   await openTrackWithDraw(page);
   const firstTime = page.getByPlaceholder('0.00').first();
@@ -59,7 +57,7 @@ test('tempo editado na pista continua após trocar de aba e voltar', async ({ pa
 });
 
 test('falha ao limpar tempos volta a mostrar os tempos do banco', async ({ page }) => {
-  await loginAs(page, 'admin');
+  await loginAs(page, 'userA');
   await openEvent(page, TEST_EVENTS.userA);
   await openTrackWithDraw(page);
   const firstTime = page.getByPlaceholder('0.00').first();
@@ -74,7 +72,7 @@ test('falha ao limpar tempos volta a mostrar os tempos do banco', async ({ page 
 });
 
 test('depois do primeiro tempo lançado, refazer o sorteio fica bloqueado', async ({ page }) => {
-  await loginAs(page, 'admin');
+  await loginAs(page, 'userA');
   await openEvent(page, TEST_EVENTS.userA);
   await openTrackWithDraw(page);
   const firstTime = page.getByPlaceholder('0.00').first();
@@ -85,6 +83,23 @@ test('depois do primeiro tempo lançado, refazer o sorteio fica bloqueado', asyn
   await expect(page.getByRole('button', { name: 'Refazer sorteio' })).toBeDisabled();
   await expect(page.getByText('Não é possível refazer: já há tempos lançados.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Baixar súmula (PDF)' })).toBeVisible();
+});
+
+test('Ir para a corrida atual foca o 1º tempo dela; outro usuário não lança tempo pela API', async ({ page }) => {
+  await loginAs(page, 'userA');
+  await openEvent(page, TEST_EVENTS.userA);
+  await openTrackWithDraw(page);
+  await page.getByRole('button', { name: 'Ir para a corrida atual' }).click();
+  const current = page.locator('li[aria-current="true"]');
+  await expect(current).toHaveCount(1);
+  await expect(current.locator('input[data-time-cell]').first()).toBeFocused();
+  const runNumber = await current.locator('span').first().innerText();
+  await expect(page.getByLabel(`Tempo boi 1 da corrida ${runNumber}`)).toBeFocused();
+  const draws = await (await page.request.get(new URL(page.url()).pathname.replace(/^\/provas\/([^/]+).*/, '/api/events/$1/draws'))).json() as Array<{ runs: Array<{ id: string }> }>;
+  const runId = draws[0].runs[0].id;
+  await loginAs(page, 'userB');
+  const response = await page.request.patch(`/api/runs/${runId}/times`, { data: { bullNumber: 1, timeSeconds: 7.5, isNt: false } });
+  expect(response.status()).toBe(404);
 });
 
 test('user B recebe 404 nas rotas da prova do user A', async ({ page }) => {
@@ -122,7 +137,7 @@ test('pista sem sorteio mostra estado vazio com link para o Sorteio', async ({ p
 });
 
 test('sessão expirada na pista avisa que o tempo não foi salvo e vai ao login', async ({ page }) => {
-  await loginAs(page, 'admin');
+  await loginAs(page, 'userA');
   await openEvent(page, TEST_EVENTS.userA);
   await openTrackWithDraw(page);
   await page.context().clearCookies();
@@ -135,7 +150,7 @@ test('sessão expirada na pista avisa que o tempo não foi salvo e vai ao login'
 });
 
 test('voltar e avançar após edição rápida não perde o tempo salvo (refresh só no histórico)', async ({ page }) => {
-  await loginAs(page, 'admin');
+  await loginAs(page, 'userA');
   await openEvent(page, TEST_EVENTS.userA);
   await openTrackWithDraw(page);
   const firstTime = page.getByPlaceholder('0.00').first();
