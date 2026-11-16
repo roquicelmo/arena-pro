@@ -33,7 +33,7 @@ export function LoginForm({ next = '/', expired = false }: { next?: string; expi
 
   return (
     <section className="w-full max-w-md rounded-ui border border-line bg-surface p-7 sm:p-9">
-      <p className="font-display text-sm font-bold uppercase tracking-widest text-accent">Arena Pro</p>
+      <p className="font-display text-sm font-bold uppercase tracking-widest text-accent-ink">Arena Pro</p>
 
       {mode === 'login' ? (
         <>

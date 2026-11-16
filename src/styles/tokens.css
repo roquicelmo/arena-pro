@@ -1,6 +1,6 @@
 /*
  * Identidade visual "Arena" — tokens do Arena Pro.
- * Areia, couro e terracota; números em fonte condensada como num placar.
+ * Areia, couro e o dourado da logo; números em fonte condensada como num placar.
  * As fontes vêm de next/font (variáveis --font-barlow e --font-barlow-condensed).
  */
 @theme {
@@ -13,11 +13,14 @@
   --color-ink: #3a2f25;
   /* #8a7a68 do mockup não atinge AA (3,8:1) sobre areia; tom ajustado = 5,1:1 */
   --color-ink-muted: #6f604d;
-  --color-accent: #b5471b;
-  --color-accent-hover: #963914;
+  /* Dourado da logo (#ac6b13) levemente escurecido: branco por cima = 4,6:1 (AA); hover = 6,4:1. */
+  --color-accent: #a6670f;
+  --color-accent-hover: #87530c;
+  /* Texto pequeno dourado sobre areia/superfície (5,7:1 e 6,2:1); o acento puro só em texto grande e ícones. */
+  --color-accent-ink: #8a540c;
   /* Texto sobre acento/perigo (não usar text-white: a camada legada o sobrescreve). */
   --color-on-accent: #ffffff;
-  --color-accent-soft: #f6e2d6;
+  --color-accent-soft: #f5e9d4;
   --color-highlight: #f3e3cf;
   --color-success: #3f6b2a;
   --color-success-soft: #e6eedc;

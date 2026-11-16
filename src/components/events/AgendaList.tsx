@@ -48,7 +48,7 @@ export function AgendaList({ events, today, showOwner }: { events: EventSummary[
         icon={CalendarDays}
         title="Nenhuma prova na agenda"
         description="Crie uma prova para ela aparecer aqui."
-        action={<Link href="/provas" className="text-sm font-semibold text-accent hover:text-accent-hover">Ir para provas</Link>}
+        action={<Link href="/provas" className="text-sm font-semibold text-accent-ink hover:text-accent-hover">Ir para provas</Link>}
       />
     );
   }
