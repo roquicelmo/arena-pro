@@ -16,7 +16,9 @@
     "db:local:up": "docker compose up -d --wait",
     "db:local:migrate": "dotenv -e .env.local -- sh -c \"node scripts/assert-local-db.mjs && prisma migrate deploy\"",
     "db:local:seed": "dotenv -e .env.local -- sh -c \"node scripts/assert-local-db.mjs && prisma db seed\"",
-    "db:test:reset": "dotenv -e .env.local -- node scripts/with-test-db.mjs node scripts/reset-test-db.mjs"
+    "db:test:reset": "dotenv -e .env.local -- node scripts/with-test-db.mjs node scripts/reset-test-db.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -32,22 +34,28 @@
     "next": "^16.4.6",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "server-only": "^0.0.1",
     "tailwind-merge": "^3.7.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.5",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.12",
     "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "autoprefixer": "^10.6.1",
     "dotenv-cli": "^8.0.0",
+    "jsdom": "^26.1.0",
     "oxlint": "^1.81.0",
     "postcss": "^8.5.29",
     "prisma": "^6.19.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.20.6",
-    "typescript": "~6.0.2"
+    "typescript": "~6.0.2",
+    "vitest": "^3.2.7"
   }
 }
