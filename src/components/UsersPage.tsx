@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect, useState } from 'react';
 import { Check, Clock3, LockKeyhole, Plus, Shield, UserRound, X } from 'lucide-react';
 
@@ -75,7 +77,7 @@ export const UsersPage: React.FC<UsersPageProps> = ({ role }) => {
   return (
     <section className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-[#218f83]">Controle de acesso</p><h2 className="mt-2 text-2xl font-extrabold tracking-tight text-[#172036]">Usuários</h2><p className="mt-1 text-sm text-[#6b788b]">Administre perfis, acessos provisórios e permissões.</p></div>
+        <div><p className="text-sm text-[#6b788b]">Administre perfis, acessos provisórios e permissões.</p></div>
         {role === 'ADMIN' && <button type="button" onClick={() => setIsFormOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#218f83] px-4 py-3 text-sm font-bold text-white hover:bg-[#176f67]"><Plus className="h-4 w-4" /> Novo usuário</button>}
       </div>
       {error && <div role="alert" className="rounded-xl border border-[#f2c7c2] bg-[#fff4f2] px-4 py-3 text-sm font-semibold text-[#a33d32]">{error}</div>}

@@ -23,7 +23,7 @@ interface DrawConfigurationProps {
   pezeiros: Competitor[];
   cabeceiros: Competitor[];
   onGenerateDraw: () => void;
-  onBack: () => void;
+  onBack?: () => void;
 }
 
 export const DrawConfiguration: React.FC<DrawConfigurationProps> = ({
@@ -1119,14 +1119,16 @@ export const DrawConfiguration: React.FC<DrawConfigurationProps> = ({
 
       {/* Navigation Footer */}
       <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 pt-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-semibold text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center justify-center gap-2 cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Voltar para Cabeceiros
-        </button>
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-semibold text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Voltar para Cabeceiros
+          </button>
+        ) : <span className="hidden sm:block" />}
 
         <button
           type="button"

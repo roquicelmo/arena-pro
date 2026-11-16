@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { hash } from 'bcryptjs';
 import { getAuthenticatedUser } from '../../auth';
 import { prisma } from '../../prisma';
+import { findUsersRaw } from '../../services/raw';
 import { canEditUsers, canManageUsers } from '../../permissions';
 
 interface VercelRequest { method?: string; headers: Record<string, string | string[] | undefined>; body?: unknown }
@@ -30,10 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!user || !canManageUsers(user.role)) return res.status(403).json({ message: 'Você não tem permissão para gerenciar usuários.' });
 
   if (req.method === 'GET') {
-    const users = await prisma.user.findMany({
-      select: { id: true, name: true, email: true, role: true, active: true, provisional: true, accessExpiresAt: true, lastLoginAt: true, createdAt: true, managedById: true },
-      orderBy: [{ active: 'desc' }, { name: 'asc' }],
-    });
+    const users = await findUsersRaw();
     return res.status(200).json(users);
   }
 

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { getAuthenticatedUser } from '../../auth';
 import { prisma } from '../../prisma';
+import { findAthletesRaw } from '../../services/raw';
 
 interface VercelRequest {
   method?: string;
@@ -46,11 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === 'GET') {
     const ownerId = typeof req.query?.ownerId === 'string' ? req.query.ownerId : undefined;
-    const athletes = await prisma.athlete.findMany({
-      where: { active: true, ...(user.role === 'USER' ? { ownerId: user.id } : ownerId ? { ownerId } : {}) },
-      include: { owner: { select: { id: true, name: true, email: true } } },
-      orderBy: { name: 'asc' },
-    });
+    const athletes = await findAthletesRaw(user, { ownerId });
     return res.status(200).json(athletes);
   }
 

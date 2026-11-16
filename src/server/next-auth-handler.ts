@@ -35,6 +35,11 @@ export default async function nextAuthHandler(req: NextApiRequest, res: NextApiR
   const response = await Auth(request, authConfig);
 
   res.status(response.status);
-  response.headers.forEach((value, key) => res.setHeader(key, value));
+  response.headers.forEach((value, key) => {
+    // Set-Cookie pode vir repetido (ex.: csrf-token + callback-url); setHeader sobrescreveria.
+    if (key.toLowerCase() !== 'set-cookie') res.setHeader(key, value);
+  });
+  const cookies = response.headers.getSetCookie();
+  if (cookies.length > 0) res.setHeader('set-cookie', cookies);
   res.end(await response.text());
 }

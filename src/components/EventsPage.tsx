@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CalendarDays, ClipboardList, Info, MapPin, Pencil, Plus, Trophy, Users, X } from 'lucide-react';
+import Link from 'next/link';
 import type { EventSummary } from '../types/events';
 
 interface EventsPageProps {
@@ -8,7 +9,6 @@ interface EventsPageProps {
   owners?: Array<{ id: string; name: string | null; email: string }>;
   canFilterOwners?: boolean;
   defaultOwnerId?: string;
-  onOpenEvent: (event: EventSummary) => void;
   onCreate: (input: EventFormInput) => Promise<void>;
   onUpdate: (eventId: string, input: Pick<EventFormInput, 'name' | 'eventDate'>) => Promise<void>;
   onDelete: (event: EventSummary) => Promise<void>;
@@ -33,7 +33,7 @@ export interface ArenaOption {
 
 const emptyForm: EventFormInput = { name: '', eventDate: '', arenaName: '', city: '', state: '' };
 
-export const EventsPage: React.FC<EventsPageProps> = ({ events, arenas, owners = [], canFilterOwners = false, defaultOwnerId, onOpenEvent, onCreate, onUpdate, onDelete }) => {
+export const EventsPage: React.FC<EventsPageProps> = ({ events, arenas, owners = [], canFilterOwners = false, defaultOwnerId, onCreate, onUpdate, onDelete }) => {
   const [form, setForm] = useState<EventFormInput>(emptyForm);
   const [editing, setEditing] = useState<EventSummary | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -84,9 +84,7 @@ export const EventsPage: React.FC<EventsPageProps> = ({ events, arenas, owners =
   <section className="space-y-5">
     <div className="flex flex-col gap-4 px-1 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#218f83]">Operação</p>
-        <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-[#172036]">Provas e arenas</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6b788b]">
+        <p className="max-w-2xl text-sm leading-6 text-[#6b788b]">
           Cadastre torneios, acompanhe inscrições e acesse cada etapa da prova.
         </p>
       </div>
@@ -121,7 +119,7 @@ export const EventsPage: React.FC<EventsPageProps> = ({ events, arenas, owners =
               <button type="button" onClick={() => openEdit(event)} aria-label={`Editar ${event.name}`} className="rounded-lg p-2 text-[#8290a1] transition hover:bg-[#eef3f6] hover:text-[#172036]">
                 <Pencil className="h-4 w-4" />
               </button>
-              <button type="button" onClick={() => void remove(event)} aria-label={`Excluir ${event.name}`} className="rounded-lg p-2 text-[#8290a1] transition hover:bg-red-50 hover:text-red-600">
+              <button type="button" onClick={() => void remove(event)} aria-label={`Cancelar ${event.name}`} className="rounded-lg p-2 text-[#8290a1] transition hover:bg-red-50 hover:text-red-600">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -136,9 +134,9 @@ export const EventsPage: React.FC<EventsPageProps> = ({ events, arenas, owners =
                 {event.steward && <span className="inline-flex items-center gap-2"><Users className="h-4 w-4 text-[#8290a1]" />Mesário: {event.steward}</span>}
               </div>
             </div>
-            <button type="button" onClick={() => onOpenEvent(event)} className="inline-flex items-center gap-2 self-start rounded-lg px-2 py-1 text-sm font-bold text-[#176f67] transition hover:bg-[#e5f5f2]">
+            <Link href={`/provas/${event.id}`} className="inline-flex items-center gap-2 self-start rounded-lg px-2 py-1 text-sm font-bold text-[#176f67] transition hover:bg-[#e5f5f2]">
               <Info className="h-4 w-4" /> Detalhes
-            </button>
+            </Link>
           </div>
 
           <div className="flex flex-col gap-4 border-t border-[#eef1f4] pt-4 sm:flex-row sm:items-center sm:justify-between">
@@ -152,12 +150,12 @@ export const EventsPage: React.FC<EventsPageProps> = ({ events, arenas, owners =
           </div>
 
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            <button type="button" onClick={() => onOpenEvent(event)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#eef3f6] px-4 py-3 text-sm font-bold text-[#172036] transition hover:bg-[#e3eaf0]">
+            <Link href={`/provas/${event.id}`} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#eef3f6] px-4 py-3 text-sm font-bold text-[#172036] transition hover:bg-[#e3eaf0]">
               <ClipboardList className="h-4 w-4" /> Inscrições
-            </button>
-            <button type="button" onClick={() => onOpenEvent(event)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#218f83] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#176f67]">
+            </Link>
+            <Link href={`/provas/${event.id}`} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#218f83] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#176f67]">
               <Trophy className="h-4 w-4" /> Sorteio e pista
-            </button>
+            </Link>
           </div>
         </article>
       ))}

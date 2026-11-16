@@ -5,6 +5,7 @@ const getAuthenticatedUser = vi.fn<(headers: Headers) => Promise<AuthenticatedUs
 
 vi.mock('server-only', () => ({}));
 vi.mock('./auth', () => ({ getAuthenticatedUser }));
+vi.mock('./prisma', () => ({ prisma: { user: { findUnique: async () => ({ name: 'Ana' }) } } }));
 vi.mock('next/headers', () => ({ headers: async () => new Headers({ cookie: 'session=abc' }) }));
 vi.mock('next/navigation', () => ({
   redirect: (path: string) => {
@@ -15,13 +16,20 @@ vi.mock('next/navigation', () => ({
   },
 }));
 
-const { ActionAuthError, getCurrentUser, requireActionUser, requireRole, requireUser } = await import('./session');
+const { ActionAuthError, getCurrentUser, getCurrentUserProfile, requireActionUser, requireRole, requireUser } = await import('./session');
 const { MANAGER_ROLES, OPERATOR_ROLES } = await import('./permissions');
 
 const mockAuth = (user: AuthenticatedUser | null) => getAuthenticatedUser.mockResolvedValue(user);
 
 describe('session', () => {
   beforeEach(() => getAuthenticatedUser.mockReset());
+
+  it('getCurrentUserProfile traz o nome e devolve null sem sessão', async () => {
+    mockAuth({ id: 'u1', email: 'a@b.c', role: 'USER' });
+    await expect(getCurrentUserProfile()).resolves.toEqual({ id: 'u1', name: 'Ana', email: 'a@b.c', role: 'USER' });
+    mockAuth(null);
+    await expect(getCurrentUserProfile()).resolves.toBeNull();
+  });
 
   it('getCurrentUser repassa os headers da requisição', async () => {
     mockAuth({ id: 'u1', role: 'USER' });

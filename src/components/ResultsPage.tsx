@@ -6,7 +6,7 @@ import type { Run } from '../types/roping';
 interface ResultsPageProps {
   event: EventSummary;
   runs: Run[];
-  onBack: () => void;
+  onBack?: () => void;
   onPublish: () => void;
   published: boolean;
 }
@@ -21,9 +21,11 @@ export const ResultsPage: React.FC<ResultsPageProps> = ({ event, runs, onBack, o
 
   return (
     <section className="space-y-5">
-      <button type="button" onClick={onBack} className="inline-flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-bold text-[#6b788b] transition hover:bg-[#eef3f6] hover:text-[#172036]">
-        <ArrowLeft className="h-4 w-4" /> Voltar para detalhes
-      </button>
+      {onBack && (
+        <button type="button" onClick={onBack} className="inline-flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-bold text-[#6b788b] transition hover:bg-[#eef3f6] hover:text-[#172036]">
+          <ArrowLeft className="h-4 w-4" /> Voltar para detalhes
+        </button>
+      )}
       <div className="print-header rounded-2xl bg-[#111a31] p-6 text-white">
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#8de0d4]">Resultado final</p>
         <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
