@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { getAuthenticatedUser } from '../../auth';
-import { prisma } from '../../prisma';
+import { OPERATOR_ROLES } from '../../permissions';
+import { cancelEvent, updateEvent } from '../../services/commands/events';
+import { respondDomainError } from '../domain-error';
 
 interface VercelRequest {
   method?: string;
@@ -31,7 +33,7 @@ const toHeaders = (input: VercelRequest['headers']) => {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const user = await getAuthenticatedUser(toHeaders(req.headers));
   if (!user) return res.status(401).json({ message: 'É necessário estar autenticado.' });
-  if (!['ADMIN', 'MANAGER', 'ORGANIZER', 'USER'].includes(user.role)) {
+  if (!(OPERATOR_ROLES as readonly string[]).includes(user.role)) {
     return res.status(403).json({ message: 'Seu perfil não pode alterar provas.' });
   }
 
@@ -39,11 +41,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!eventId) return res.status(400).json({ message: 'Identificador da prova é obrigatório.' });
 
   if (req.method === 'DELETE') {
-    const event = await prisma.event.findUnique({ where: { id: eventId }, select: { id: true, createdById: true } });
-    if (!event) return res.status(404).json({ message: 'Prova não encontrada.' });
-    if (user.role === 'USER' && event.createdById !== user.id) return res.status(404).json({ message: 'Prova não encontrada.' });
-    await prisma.event.update({ where: { id: eventId }, data: { status: 'CANCELLED' } });
-    return res.status(204).json(null);
+    try {
+      await cancelEvent(user, eventId);
+      return res.status(204).json(null);
+    } catch (error) {
+      return respondDomainError(res, error);
+    }
   }
 
   if (req.method !== 'PATCH') return res.status(405).json({ message: 'Método não permitido.' });
@@ -52,19 +55,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ message: 'Dados da prova inválidos.', issues: parsed.error.flatten() });
   }
 
-  const owner = await prisma.event.findUnique({ where: { id: eventId }, select: { createdById: true } });
-  if (!owner || (user.role === 'USER' && owner.createdById !== user.id)) return res.status(404).json({ message: 'Prova não encontrada.' });
-  const event = await prisma.event.update({
-    where: { id: eventId },
-    data: {
-      ...(parsed.data.name ? { name: parsed.data.name } : {}),
-      ...(parsed.data.eventDate ? { eventDate: new Date(parsed.data.eventDate) } : {}),
-    },
-    include: {
-      arena: { select: { name: true, city: true, state: true } },
-      createdBy: { select: { name: true } },
-      _count: { select: { registrations: true, draws: true } },
-    },
-  });
-  return res.status(200).json(event);
+  try {
+    const event = await updateEvent(user, eventId, {
+      name: parsed.data.name,
+      eventDate: parsed.data.eventDate ? new Date(parsed.data.eventDate) : undefined,
+    });
+    return res.status(200).json(event);
+  } catch (error) {
+    return respondDomainError(res, error);
+  }
 }

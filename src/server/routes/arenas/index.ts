@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { getAuthenticatedUser } from '../../auth';
-import { prisma } from '../../prisma';
+import { OPERATOR_ROLES } from '../../permissions';
+import { createArena } from '../../services/commands/arenas';
+import { respondDomainError } from '../domain-error';
 import { findArenasRaw } from '../../services/raw';
 
 interface VercelRequest {
@@ -41,7 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (req.method !== 'POST') return res.status(405).json({ message: 'Método não permitido.' });
-  if (!['ADMIN', 'MANAGER', 'ORGANIZER', 'USER'].includes(user.role)) {
+  if (!(OPERATOR_ROLES as readonly string[]).includes(user.role)) {
     return res.status(403).json({ message: 'Seu perfil não pode gerenciar arenas.' });
   }
 
@@ -50,14 +52,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ message: 'Dados da arena inválidos.', issues: parsed.error.flatten() });
   }
 
-  const existing = await prisma.arena.findFirst({
-    where: { name: parsed.data.name, city: parsed.data.city, state: parsed.data.state, active: true, ...(user.role === 'USER' ? { ownerId: user.id } : {}) },
-  });
-  if (existing) return res.status(200).json(existing);
-
   const requestedOwnerId = typeof (req.body as { ownerId?: unknown })?.ownerId === 'string'
     ? (req.body as { ownerId: string }).ownerId
     : undefined;
-  const arena = await prisma.arena.create({ data: { ...parsed.data, ownerId: user.role === 'USER' ? user.id : requestedOwnerId ?? user.id } });
-  return res.status(201).json(arena);
+  try {
+    const { arena, created } = await createArena(user, { ...parsed.data, ownerId: requestedOwnerId });
+    return res.status(created ? 201 : 200).json(arena);
+  } catch (error) {
+    return respondDomainError(res, error);
+  }
 }

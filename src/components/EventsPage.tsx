@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import type { ArenaOption } from '../types/arenas';
 import { CalendarDays, ClipboardList, Info, MapPin, Pencil, Plus, Trophy, Users, X } from 'lucide-react';
 import Link from 'next/link';
 import type { EventSummary } from '../types/events';
@@ -24,12 +25,7 @@ export interface EventFormInput {
   ownerId?: string;
 }
 
-export interface ArenaOption {
-  id: string;
-  name: string;
-  city: string;
-  state: string;
-}
+export type { ArenaOption };
 
 const emptyForm: EventFormInput = { name: '', eventDate: '', arenaName: '', city: '', state: '' };
 

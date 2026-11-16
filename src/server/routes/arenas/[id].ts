@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { getAuthenticatedUser } from '../../auth';
-import { prisma } from '../../prisma';
+import { OPERATOR_ROLES } from '../../permissions';
+import { deactivateArena, updateArena } from '../../services/commands/arenas';
+import { respondDomainError } from '../domain-error';
 
 interface VercelRequest {
   method?: string;
@@ -32,18 +34,19 @@ const toHeaders = (input: VercelRequest['headers']) => {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const user = await getAuthenticatedUser(toHeaders(req.headers));
   if (!user) return res.status(401).json({ message: 'É necessário estar autenticado.' });
-  if (!['ADMIN', 'MANAGER', 'ORGANIZER', 'USER'].includes(user.role)) {
+  if (!(OPERATOR_ROLES as readonly string[]).includes(user.role)) {
     return res.status(403).json({ message: 'Seu perfil não pode alterar arenas.' });
   }
 
   const id = typeof req.query?.id === 'string' ? req.query.id : '';
   if (!id) return res.status(400).json({ message: 'Identificador da arena é obrigatório.' });
-  const target = await prisma.arena.findUnique({ where: { id }, select: { ownerId: true } });
-  if (!target || (user.role === 'USER' && target.ownerId !== user.id)) return res.status(404).json({ message: 'Arena não encontrada.' });
-
   if (req.method === 'DELETE') {
-    await prisma.arena.update({ where: { id }, data: { active: false } });
-    return res.status(204).json(null);
+    try {
+      await deactivateArena(user, id);
+      return res.status(204).json(null);
+    } catch (error) {
+      return respondDomainError(res, error);
+    }
   }
   if (req.method !== 'PATCH') return res.status(405).json({ message: 'Método não permitido.' });
 
@@ -51,6 +54,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!parsed.success) {
     return res.status(400).json({ message: 'Dados da arena inválidos.', issues: parsed.error.flatten() });
   }
-  const arena = await prisma.arena.update({ where: { id }, data: parsed.data });
-  return res.status(200).json(arena);
+  try {
+    const arena = await updateArena(user, id, parsed.data);
+    return res.status(200).json(arena);
+  } catch (error) {
+    return respondDomainError(res, error);
+  }
 }

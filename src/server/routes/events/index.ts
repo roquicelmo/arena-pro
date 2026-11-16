@@ -1,5 +1,7 @@
 import { getAuthenticatedUser } from '../../auth';
-import { prisma } from '../../prisma';
+import { OPERATOR_ROLES } from '../../permissions';
+import { createEvent } from '../../services/commands/events';
+import { respondDomainError } from '../domain-error';
 import { findEventsRaw } from '../../services/raw';
 import { z } from 'zod';
 
@@ -24,6 +26,8 @@ const eventInput = z.object({
   state: z.string().trim().length(2).toUpperCase(),
 });
 
+const VIEW_ROLES: readonly string[] = [...OPERATOR_ROLES, 'TRACK_OPERATOR', 'ANNOUNCER', 'JUDGE', 'VIEWER'];
+
 const toHeaders = (input: VercelRequest['headers']) => {
   const headers = new Headers();
   for (const [name, value] of Object.entries(input)) {
@@ -36,11 +40,11 @@ const toHeaders = (input: VercelRequest['headers']) => {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const user = await getAuthenticatedUser(toHeaders(req.headers));
   if (!user) return res.status(401).json({ message: 'É necessário estar autenticado.' });
-  if (!['ADMIN', 'MANAGER', 'ORGANIZER', 'USER', 'TRACK_OPERATOR', 'ANNOUNCER', 'JUDGE', 'VIEWER'].includes(user.role)) {
+  if (!VIEW_ROLES.includes(user.role)) {
     return res.status(403).json({ message: 'Seu perfil não pode consultar provas.' });
   }
   if (req.method === 'POST') {
-    if (!['ADMIN', 'MANAGER', 'ORGANIZER', 'USER'].includes(user.role)) {
+    if (!(OPERATOR_ROLES as readonly string[]).includes(user.role)) {
       return res.status(403).json({ message: 'Seu perfil não pode criar provas.' });
     }
     const parsed = eventInput.safeParse(req.body);
@@ -51,33 +55,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const requestedOwnerId = typeof (req.body as { ownerId?: unknown })?.ownerId === 'string'
       ? (req.body as { ownerId: string }).ownerId
       : undefined;
-    const ownerId = user.role === 'USER' ? user.id : requestedOwnerId ?? user.id;
-    const arena = parsed.data.arenaId
-      ? await prisma.arena.findFirst({ where: { id: parsed.data.arenaId, active: true, ...(user.role === 'USER' ? { ownerId: user.id } : {}) } })
-      : await prisma.arena.create({
-          data: {
-            name: parsed.data.arenaName,
-            city: parsed.data.city,
-            state: parsed.data.state,
-            ownerId,
-          },
-        });
-    if (!arena) return res.status(404).json({ message: 'Arena não encontrada ou inativa.' });
-    const event = await prisma.event.create({
-      data: {
+    try {
+      const event = await createEvent(user, {
         name: parsed.data.name,
         eventDate: new Date(parsed.data.eventDate),
-        arenaId: arena.id,
-        createdById: ownerId,
-        status: 'DRAFT',
-      },
-      include: {
-        arena: { select: { id: true, name: true, city: true, state: true } },
-        createdBy: { select: { id: true, name: true, email: true } },
-        _count: { select: { registrations: true, draws: true } },
-      },
-    });
-    return res.status(201).json(event);
+        arenaId: parsed.data.arenaId,
+        newArena: { name: parsed.data.arenaName, city: parsed.data.city, state: parsed.data.state },
+        ownerId: requestedOwnerId,
+      });
+      return res.status(201).json(event);
+    } catch (error) {
+      return respondDomainError(res, error);
+    }
   }
 
   if (req.method !== 'GET') return res.status(405).json({ message: 'Método não permitido.' });
