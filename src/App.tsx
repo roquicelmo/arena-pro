@@ -34,9 +34,11 @@ import { mapPersistedRuns, toCompetitor, toEventSummary, type PersistedAthlete, 
 
 interface AppProps {
   initialSession?: AuthSession;
+  /** Dentro do shell das rotas: sem Sidebar/header próprios. */
+  embedded?: boolean;
 }
 
-export const App: React.FC<AppProps> = ({ initialSession }) => {
+export const App: React.FC<AppProps> = ({ initialSession, embedded = false }) => {
   const [authSession, setAuthSession] = useState<AuthSession | null | undefined>(initialSession);
   // 1. Wizard Current Step: 1, 2, 3, 4
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
@@ -547,16 +549,19 @@ export const App: React.FC<AppProps> = ({ initialSession }) => {
     ) : !authSession ? (
       <div className="flex min-h-screen items-center justify-center bg-[#f6f8fa] text-sm font-semibold text-[#6b788b]">Sessão encerrada. Redirecionando...</div>
     ) : (
-    <div className="flex min-h-screen bg-[#f6f8fa] text-[#2f3b4f]">
-      <Sidebar
-        activeSection={activeSection}
-        isOpen={isSidebarOpen}
-        onNavigate={handleNavigate}
-        onClose={() => setIsSidebarOpen(false)}
-        onLogout={() => void handleLogout()}
-      />
+    <div className={embedded ? 'text-[#2f3b4f]' : 'flex min-h-screen bg-[#f6f8fa] text-[#2f3b4f]'}>
+      {!embedded && (
+        <Sidebar
+          activeSection={activeSection}
+          isOpen={isSidebarOpen}
+          onNavigate={handleNavigate}
+          onClose={() => setIsSidebarOpen(false)}
+          onLogout={() => void handleLogout()}
+        />
+      )}
 
       <div className="flex min-w-0 flex-1 flex-col">
+        {!embedded && (
         <header className="sticky top-0 z-30 border-b border-[#1e2942] bg-[#111a31] no-print">
           <div className="flex h-20 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
@@ -591,6 +596,7 @@ export const App: React.FC<AppProps> = ({ initialSession }) => {
             </div>
           </div>
         </header>
+        )}
 
         <main className="mx-auto w-full max-w-[1720px] flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         {showDashboard ? (
@@ -730,9 +736,11 @@ export const App: React.FC<AppProps> = ({ initialSession }) => {
         )}
         </main>
 
+        {!embedded && (
         <footer className="border-t border-slate-900 bg-slate-950 py-6 text-center text-xs text-slate-500 no-print">
           <p>Sistema de gestão de provas de laço em dupla • Henrique Lagoa</p>
         </footer>
+        )}
 
         <NewCompetitorModal
           isOpen={isModalOpen}

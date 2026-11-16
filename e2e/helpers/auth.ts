@@ -9,12 +9,11 @@ export async function loginAs(page: Page, user: TestUserKey) {
   await page.getByLabel('Senha', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('heading', { name: /painel geral/i })).toBeVisible();
+  await expect(page.getByRole('main')).toBeVisible();
+  await expect(page.getByRole('button', { name: /abrir menu|sair/i }).first()).toBeVisible();
 }
 
-/** Abre uma seção pelo menu lateral (no mobile, abre o drawer antes). */
-export async function openSection(page: Page, label: string) {
-  const menuButton = page.getByRole('button', { name: 'Abrir menu' });
-  if (await menuButton.isVisible()) await menuButton.click();
-  await page.getByRole('button', { name: label }).first().click();
+/** No mobile abre o drawer do menu; no desktop o menu já está visível. */
+export async function openNav(page: Page, isMobile: boolean | undefined) {
+  if (isMobile) await page.getByRole('button', { name: 'Abrir menu' }).click();
 }

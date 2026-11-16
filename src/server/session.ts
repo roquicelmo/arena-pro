@@ -4,10 +4,26 @@ import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { getAuthenticatedUser, type AuthenticatedUser } from './auth';
 import { OPERATOR_ROLES } from './permissions';
+import { prisma } from './prisma';
 
 /** Usuário da requisição atual (deduplicado por requisição). */
 export const getCurrentUser = cache(async (): Promise<AuthenticatedUser | null> => {
   return getAuthenticatedUser(new Headers(await headers()));
+});
+
+export interface UserProfile {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string;
+}
+
+/** Usuário atual com nome (consulta mínima), deduplicado por requisição. */
+export const getCurrentUserProfile = cache(async (): Promise<UserProfile | null> => {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  const account = await prisma.user.findUnique({ where: { id: user.id }, select: { name: true } });
+  return { id: user.id, name: account?.name ?? null, email: user.email ?? '', role: user.role };
 });
 
 /** Para Server Components/páginas: sem sessão, redireciona para o login. */
