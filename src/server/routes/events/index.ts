@@ -1,5 +1,5 @@
 import { getAuthenticatedUser } from '../../auth';
-import { OPERATOR_ROLES } from '../../permissions';
+import { EVENT_VIEW_ROLES, OPERATOR_ROLES } from '../../permissions';
 import { createEvent } from '../../services/commands/events';
 import { respondDomainError } from '../domain-error';
 import { findEventsRaw } from '../../services/raw';
@@ -26,8 +26,6 @@ const eventInput = z.object({
   state: z.string().trim().length(2).toUpperCase(),
 });
 
-const VIEW_ROLES: readonly string[] = [...OPERATOR_ROLES, 'TRACK_OPERATOR', 'ANNOUNCER', 'JUDGE', 'VIEWER'];
-
 const toHeaders = (input: VercelRequest['headers']) => {
   const headers = new Headers();
   for (const [name, value] of Object.entries(input)) {
@@ -40,7 +38,7 @@ const toHeaders = (input: VercelRequest['headers']) => {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const user = await getAuthenticatedUser(toHeaders(req.headers));
   if (!user) return res.status(401).json({ message: 'É necessário estar autenticado.' });
-  if (!VIEW_ROLES.includes(user.role)) {
+  if (!EVENT_VIEW_ROLES.includes(user.role)) {
     return res.status(403).json({ message: 'Seu perfil não pode consultar provas.' });
   }
   if (req.method === 'POST') {

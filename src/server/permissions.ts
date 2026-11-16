@@ -2,6 +2,8 @@
 export const MANAGER_ROLES = ['ADMIN', 'MANAGER', 'ORGANIZER'] as const;
 /** Papéis que operam dados (provas, atletas, sorteios, tempos). VIEWER = bloqueado/expirado. */
 export const OPERATOR_ROLES = ['ADMIN', 'MANAGER', 'ORGANIZER', 'USER'] as const;
+/** Papéis que podem consultar provas: operadores mais os papéis de pista e leitura. */
+export const EVENT_VIEW_ROLES: readonly string[] = [...OPERATOR_ROLES, 'TRACK_OPERATOR', 'ANNOUNCER', 'JUDGE', 'VIEWER'];
 
 export const isAdmin = (role: string) => role === 'ADMIN';
 export const isManager = (role: string) => role === 'MANAGER' || role === 'ORGANIZER';
