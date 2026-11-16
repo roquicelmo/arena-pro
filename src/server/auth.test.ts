@@ -1,9 +1,12 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { encode } from '@auth/core/jwt';
 
 const SECRET = 'test-secret-for-unit-tests-only-0123456789';
 
-vi.mock('./prisma', () => ({ prisma: {} }));
+const findUnique = vi.fn();
+vi.mock('./prisma', () => ({ prisma: { user: { findUnique } } }));
+
+const activeUser = { role: 'USER', active: true, accessExpiresAt: null };
 
 let getAuthenticatedUser: typeof import('./auth').getAuthenticatedUser;
 
@@ -22,6 +25,11 @@ const sessionCookie = async (name: string) => {
 };
 
 describe('getAuthenticatedUser', () => {
+  beforeEach(() => {
+    findUnique.mockReset();
+    findUnique.mockResolvedValue(activeUser);
+  });
+
   it('lê o cookie de sessão sem prefixo em requisições http (localhost)', async () => {
     const headers = new Headers({
       cookie: await sessionCookie('authjs.session-token'),
@@ -42,5 +50,23 @@ describe('getAuthenticatedUser', () => {
 
   it('retorna null sem cookie', async () => {
     await expect(getAuthenticatedUser(new Headers({ host: 'localhost:3100' }))).resolves.toBeNull();
+  });
+
+  it('rebaixa para VIEWER um usuário bloqueado depois do login', async () => {
+    findUnique.mockResolvedValue({ role: 'ADMIN', active: false, accessExpiresAt: null });
+    const headers = new Headers({ cookie: await sessionCookie('authjs.session-token'), host: 'localhost:3100', 'x-forwarded-proto': 'http' });
+    await expect(getAuthenticatedUser(headers)).resolves.toMatchObject({ id: 'user-1', role: 'VIEWER' });
+  });
+
+  it('rebaixa para VIEWER um usuário com acesso expirado', async () => {
+    findUnique.mockResolvedValue({ role: 'USER', active: true, accessExpiresAt: new Date(Date.now() - 1000) });
+    const headers = new Headers({ cookie: await sessionCookie('authjs.session-token'), host: 'localhost:3100', 'x-forwarded-proto': 'http' });
+    await expect(getAuthenticatedUser(headers)).resolves.toMatchObject({ role: 'VIEWER' });
+  });
+
+  it('rebaixa para VIEWER um usuário excluído', async () => {
+    findUnique.mockResolvedValue(null);
+    const headers = new Headers({ cookie: await sessionCookie('authjs.session-token'), host: 'localhost:3100', 'x-forwarded-proto': 'http' });
+    await expect(getAuthenticatedUser(headers)).resolves.toMatchObject({ role: 'VIEWER' });
   });
 });

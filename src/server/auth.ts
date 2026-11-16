@@ -4,6 +4,18 @@ import { PrismaAdapter } from '@auth/prisma-adapter';
 import { compare } from 'bcryptjs';
 import { prisma } from './prisma';
 
+const ROLE_RECHECK_MS = 60_000;
+
+/** Papel efetivo: usuários inativos, expirados ou excluídos viram VIEWER (sem acesso operacional). */
+async function resolveRole(userId: string): Promise<string> {
+  const accountUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, active: true, accessExpiresAt: true },
+  });
+  const isValid = accountUser?.active && (!accountUser.accessExpiresAt || accountUser.accessExpiresAt > new Date());
+  return isValid ? accountUser.role : 'VIEWER';
+}
+
 export const authConfig: AuthConfig = {
   adapter: PrismaAdapter(prisma),
   providers: [
@@ -28,14 +40,14 @@ export const authConfig: AuthConfig = {
   ],
   callbacks: {
     async jwt({ token, user }) {
-      if (user?.id) {
-        const accountUser = await prisma.user.findUnique({
-          where: { id: user.id },
-          select: { role: true, active: true, accessExpiresAt: true },
-        });
-        token.role = accountUser?.active && (!accountUser.accessExpiresAt || accountUser.accessExpiresAt > new Date())
-          ? accountUser.role
-          : 'VIEWER';
+      const userId = user?.id ?? token.sub;
+      if (!userId) return token;
+      // Revalida no login e, depois, no máximo a cada ROLE_RECHECK_MS: bloqueio,
+      // expiração ou exclusão passam a valer sem esperar o cookie expirar.
+      const checkedAt = typeof token.checkedAt === 'number' ? token.checkedAt : 0;
+      if (user?.id || Date.now() - checkedAt > ROLE_RECHECK_MS) {
+        token.role = await resolveRole(userId);
+        token.checkedAt = Date.now();
       }
       return token;
     },
