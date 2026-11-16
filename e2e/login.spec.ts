@@ -32,3 +32,14 @@ test('alterna para solicitação de acesso', async ({ page }) => {
   await page.getByRole('button', { name: 'Ainda não tenho acesso' }).click();
   await expect(page.getByLabel('Telefone')).toBeVisible();
 });
+
+test('usuário bloqueado com senha correta vê erro no formulário sem erros de console', async ({ page }) => {
+  const errors = trackConsoleErrors(page);
+  await page.goto('/login');
+  await page.getByLabel('E-mail').fill(TEST_USERS.blocked.email);
+  await page.getByLabel('Senha', { exact: true }).fill(TEST_USERS.blocked.password);
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+  await expect(page.locator('form').getByRole('alert')).toContainText(/inválid/i);
+  await expect(page).toHaveURL(/\/login$/);
+  expect(errors()).toEqual([]);
+});

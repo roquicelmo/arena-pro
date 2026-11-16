@@ -7,6 +7,7 @@ export const TEST_USERS = {
   manager: { email: 'manager@sorteios.test', password: 'manager-local-123', role: 'MANAGER', name: 'Manager Teste' },
   userA: { email: 'user.a@sorteios.test', password: 'usera-local-123', role: 'USER', name: 'User A Teste' },
   userB: { email: 'user.b@sorteios.test', password: 'userb-local-123', role: 'USER', name: 'User B Teste' },
+  blocked: { email: 'blocked@sorteios.test', password: 'blocked-local-123', role: 'USER', name: 'Bloqueado Teste' },
 } as const;
 
 export type TestUserKey = keyof typeof TEST_USERS;

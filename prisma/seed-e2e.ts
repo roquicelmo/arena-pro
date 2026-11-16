@@ -33,7 +33,7 @@ const ATHLETES_USER_B = [
 async function upsertUser(key: keyof typeof TEST_USERS) {
   const user = TEST_USERS[key];
   const passwordHash = await hash(user.password, 12);
-  const data = { name: user.name, passwordHash, role: user.role as UserRole, active: true, provisional: false };
+  const data = { name: user.name, passwordHash, role: user.role as UserRole, active: key !== 'blocked', provisional: false };
   return prisma.user.upsert({ where: { email: user.email }, update: data, create: { email: user.email, ...data } });
 }
 
@@ -60,6 +60,7 @@ async function main() {
   await upsertUser('manager');
   const userA = await upsertUser('userA');
   const userB = await upsertUser('userB');
+  await upsertUser('blocked');
   await seedOwner(userA.id, 'ARENA E2E A', TEST_EVENTS.userA, ATHLETES_USER_A);
   await seedOwner(userB.id, 'ARENA E2E B', TEST_EVENTS.userB, ATHLETES_USER_B);
   console.log('Seed de e2e concluído.');
