@@ -1,5 +1,5 @@
 import { prisma } from '../prisma';
-import { eventScope, ownerScope } from './scope';
+import { accessScope, eventScope } from './scope';
 
 type ScopeUser = { id: string; role: string };
 
@@ -21,7 +21,7 @@ const registrationInclude = {
 /** Atletas ativos com dono, no formato bruto do Prisma (usado pelo GET /api/athletes). */
 export const findAthletesRaw = (user: ScopeUser, opts: { ownerId?: string } = {}) =>
   prisma.athlete.findMany({
-    where: { active: true, ...ownerScope(user, opts.ownerId) },
+    where: { active: true, ...accessScope(user, opts.ownerId) },
     include: { owner: { select: { id: true, name: true, email: true } } },
     orderBy: { name: 'asc' },
   });
@@ -29,7 +29,7 @@ export const findAthletesRaw = (user: ScopeUser, opts: { ownerId?: string } = {}
 /** Arenas ativas no formato bruto do Prisma (usado pelo GET /api/arenas). */
 export const findArenasRaw = (user: ScopeUser, opts: { ownerId?: string } = {}) =>
   prisma.arena.findMany({
-    where: { active: true, ...ownerScope(user, opts.ownerId) },
+    where: { active: true, ...accessScope(user, opts.ownerId) },
     orderBy: [{ name: 'asc' }, { city: 'asc' }],
   });
 

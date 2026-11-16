@@ -16,6 +16,7 @@ export interface DialogProps {
 export function Dialog({ open, onClose, title, description, busy = false, children }: DialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  const pressStartedOnBackdropRef = useRef(false);
   const titleId = useId();
   const descriptionId = useId();
 
@@ -57,8 +58,14 @@ export function Dialog({ open, onClose, title, description, busy = false, childr
           requestClose();
         }
       }}
+      onMouseDown={(event) => {
+        pressStartedOnBackdropRef.current = event.target === event.currentTarget;
+      }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) requestClose();
+        // Só fecha se o clique começou e terminou no fundo: arrastar uma seleção de texto até ele não conta.
+        const startedOnBackdrop = pressStartedOnBackdropRef.current;
+        pressStartedOnBackdropRef.current = false;
+        if (startedOnBackdrop && event.target === event.currentTarget) requestClose();
       }}
     >
       {open && (

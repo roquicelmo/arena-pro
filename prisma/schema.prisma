@@ -80,6 +80,8 @@ model User {
   managedBy     User?       @relation("UserManager", fields: [managedById], references: [id], onDelete: SetNull)
   ownedAthletes Athlete[]   @relation("AthleteOwner")
   ownedArenas   Arena[]     @relation("ArenaOwner")
+  athleteShares AthleteShare[] @relation("AthleteShares")
+  arenaShares   ArenaShare[]   @relation("ArenaShares")
   reviewedAccessRequests AccessRequest[] @relation("AccessRequestReviewer")
 
   @@index([role, active])
@@ -155,6 +157,7 @@ model Arena {
 
   events Event[]
   owner  User? @relation("ArenaOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  shares ArenaShare[]
 
   @@index([city, state])
   @@index([ownerId])
@@ -203,6 +206,7 @@ model Athlete {
   headRuns        Run[]    @relation("HeadAthlete")
   heelRuns        Run[]    @relation("HeelAthlete")
   owner           User?    @relation("AthleteOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  shares          AthleteShare[]
 
   @@index([name])
   @@index([city, state])
@@ -310,4 +314,26 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([eventId, createdAt])
   @@index([userId, createdAt])
+}
+
+model AthleteShare {
+  athleteId String
+  userId    String
+  createdAt DateTime @default(now())
+  athlete   Athlete  @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  user      User     @relation("AthleteShares", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([athleteId, userId])
+  @@index([userId])
+}
+
+model ArenaShare {
+  arenaId   String
+  userId    String
+  createdAt DateTime @default(now())
+  arena     Arena    @relation(fields: [arenaId], references: [id], onDelete: Cascade)
+  user      User     @relation("ArenaShares", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([arenaId, userId])
+  @@index([userId])
 }

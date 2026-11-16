@@ -95,4 +95,13 @@ describe('runAction', () => {
     await runAction({ schema, input: { name: 'Zé' }, revalidate: (id: string) => [`/atletas/${id}`] }, async () => 'a1');
     expect(revalidatePath).toHaveBeenCalledWith('/atletas/a1');
   });
+
+  it('falha ao revalidar depois do sucesso ainda devolve ok', async () => {
+    revalidatePath.mockImplementation(() => {
+      throw new Error('cache indisponível');
+    });
+    const result = await runAction({ schema, input: { name: 'Zé' }, revalidate: ['/atletas'] }, async () => 'feito');
+    expect(result).toEqual({ ok: true, data: 'feito' });
+    expect(console.error).toHaveBeenCalled();
+  });
 });

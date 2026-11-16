@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { Dialog } from './Dialog';
@@ -82,5 +82,27 @@ describe('Dialog', () => {
     await user.click(trigger);
     await user.click(screen.getByRole('button', { name: 'Fechar' }));
     expect(document.activeElement).toBe(trigger);
+  });
+
+  it('mousedown dentro do campo e click no fundo não fecha', async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<Harness onClose={onClose} />);
+    await user.click(screen.getByRole('button', { name: 'Abrir' }));
+    const dialog = screen.getByRole('dialog', { name: 'Novo atleta' });
+    fireEvent.mouseDown(screen.getByLabelText('Nome'));
+    fireEvent.click(dialog);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('mousedown e click no fundo fecham', async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    render(<Harness onClose={onClose} />);
+    await user.click(screen.getByRole('button', { name: 'Abrir' }));
+    const dialog = screen.getByRole('dialog', { name: 'Novo atleta' });
+    fireEvent.mouseDown(dialog);
+    fireEvent.click(dialog);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

@@ -37,10 +37,15 @@ export async function runAction<S extends z.ZodType, T>(
 
     const data = await handler(user, parsed.data);
 
-    const targets = typeof options.revalidate === 'function' ? options.revalidate(data) : options.revalidate;
-    for (const target of targets) {
-      if (typeof target === 'string') revalidatePath(target);
-      else revalidatePath(target.path, target.type);
+    // A mutação já aconteceu: falha ao revalidar o cache não pode virar erro para o usuário.
+    try {
+      const targets = typeof options.revalidate === 'function' ? options.revalidate(data) : options.revalidate;
+      for (const target of targets) {
+        if (typeof target === 'string') revalidatePath(target);
+        else revalidatePath(target.path, target.type);
+      }
+    } catch (error) {
+      console.error('Falha ao revalidar o cache depois da ação:', error);
     }
     return { ok: true, data };
   } catch (error) {

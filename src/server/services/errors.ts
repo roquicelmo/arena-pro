@@ -1,9 +1,9 @@
 /** Erro de regra de negócio: a mensagem é segura para mostrar ao usuário. */
 export class DomainError extends Error {
-  readonly status: 400 | 404 | 409;
+  readonly status: 400 | 403 | 404 | 409;
   readonly field?: string;
 
-  constructor(message: string, options: { status?: 400 | 404 | 409; field?: string } = {}) {
+  constructor(message: string, options: { status?: 400 | 403 | 404 | 409; field?: string } = {}) {
     super(message);
     this.name = 'DomainError';
     this.status = options.status ?? 400;

@@ -12,6 +12,9 @@ export const TEST_USERS = {
 
 export type TestUserKey = keyof typeof TEST_USERS;
 
+/** Atleta do user B compartilhado com o user A pelo seed de e2e. */
+export const TEST_SHARED_ATHLETE = 'PEZEIRO B1';
+
 export const TEST_EVENTS = {
   userA: 'PROVA E2E USER A',
   userB: 'PROVA E2E USER B',
