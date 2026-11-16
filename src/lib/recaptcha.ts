@@ -1,6 +1,6 @@
 export interface Grecaptcha {
-  render: (element: HTMLElement, options: { sitekey: string; callback: (token: string) => void; 'expired-callback': () => void }) => number;
-  reset: (widgetId?: number) => void;
+  ready: (callback: () => void) => void;
+  execute: (siteKey: string, options: { action: string }) => Promise<string>;
 }
 
 declare global {
@@ -10,19 +10,20 @@ declare global {
 }
 
 const ONLOAD_CALLBACK = '__arenaProRecaptchaOnload';
-const SCRIPT_SRC = `https://www.google.com/recaptcha/api.js?onload=${ONLOAD_CALLBACK}&render=explicit`;
 
 let loading: Promise<Grecaptcha> | null = null;
 
 const ready = (): Grecaptcha | null =>
-  typeof window.grecaptcha?.render === 'function' ? (window.grecaptcha as Grecaptcha) : null;
+  typeof window.grecaptcha?.execute === 'function' && typeof window.grecaptcha.ready === 'function'
+    ? (window.grecaptcha as Grecaptcha)
+    : null;
 
 /**
- * Carrega o reCAPTCHA uma vez e só resolve quando `grecaptcha.render` existe.
+ * Carrega o reCAPTCHA v3 uma vez e só resolve quando `grecaptcha.execute` existe.
  * O evento `load` do script dispara antes de o Google montar a API; por isso
  * usamos o callback `onload=` oficial em vez dele.
  */
-export function loadRecaptcha(): Promise<Grecaptcha> {
+export function loadRecaptcha(siteKey: string): Promise<Grecaptcha> {
   const api = ready();
   if (api) return Promise.resolve(api);
   if (loading) return loading;
@@ -34,7 +35,7 @@ export function loadRecaptcha(): Promise<Grecaptcha> {
       if (loaded) resolve(loaded);
     };
     const script = document.createElement('script');
-    script.src = SCRIPT_SRC;
+    script.src = `https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(siteKey)}&onload=${ONLOAD_CALLBACK}`;
     script.async = true;
     script.defer = true;
     script.addEventListener('error', () => {
@@ -45,4 +46,11 @@ export function loadRecaptcha(): Promise<Grecaptcha> {
     document.head.appendChild(script);
   });
   return loading;
+}
+
+/** Gera um token v3 para a ação informada (vale por 2 minutos; peça um novo a cada envio). */
+export async function executeRecaptcha(siteKey: string, action: string): Promise<string> {
+  const api = await loadRecaptcha(siteKey);
+  await new Promise<void>((resolve) => api.ready(resolve));
+  return api.execute(siteKey, { action });
 }

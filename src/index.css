@@ -254,3 +254,8 @@
     break-inside: avoid;
   }
 }
+
+/* reCAPTCHA v3: selo flutuante oculto; o formulário de pedido de acesso mostra a atribuição exigida pelo Google. */
+.grecaptcha-badge {
+  visibility: hidden;
+}
