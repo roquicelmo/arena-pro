@@ -1,70 +1,41 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { authClient } from '../../src/auth/session';
 import { Button, Input } from '../../src/components/ui';
-
-declare global {
-  interface Window {
-    grecaptcha?: {
-      render: (element: HTMLElement, options: { sitekey: string; callback: (token: string) => void; 'expired-callback': () => void }) => number;
-      reset: (widgetId?: number) => void;
-    };
-  }
-}
+import { executeRecaptcha, loadRecaptcha } from '../../src/lib/recaptcha';
+import { RECAPTCHA_ACTION } from '../../src/lib/recaptchaPolicy';
 
 const SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 
 export function AccessRequestForm() {
   const [form, setForm] = useState({ name: '', phone: '', email: '' });
-  const [recaptchaToken, setRecaptchaToken] = useState('');
   const [sent, setSent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const recaptchaRef = useRef<HTMLDivElement>(null);
-  const widgetId = useRef<number | null>(null);
 
+  // Pré-carrega o reCAPTCHA v3 para o envio não esperar o script do Google.
   useEffect(() => {
-    if (!SITE_KEY || widgetId.current !== null) return;
-    const renderCaptcha = () => {
-      if (recaptchaRef.current && window.grecaptcha && widgetId.current === null) {
-        widgetId.current = window.grecaptcha.render(recaptchaRef.current, {
-          sitekey: SITE_KEY,
-          callback: (token) => setRecaptchaToken(token),
-          'expired-callback': () => setRecaptchaToken(''),
-        });
-      }
-    };
-    const existing = document.querySelector<HTMLScriptElement>('script[src*="recaptcha/api.js"]');
-    if (existing) {
-      if (window.grecaptcha) renderCaptcha();
-      else existing.addEventListener('load', renderCaptcha, { once: true });
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = 'https://www.google.com/recaptcha/api.js?render=explicit';
-    script.async = true;
-    script.defer = true;
-    script.onload = renderCaptcha;
-    document.head.appendChild(script);
+    if (SITE_KEY) loadRecaptcha(SITE_KEY).catch(() => undefined);
   }, []);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!SITE_KEY) return;
     setErrorMessage('');
-    if (!recaptchaToken) {
-      setErrorMessage('Complete a validação do reCAPTCHA para continuar.');
-      return;
-    }
     setSubmitting(true);
     try {
+      let recaptchaToken: string;
+      try {
+        recaptchaToken = await executeRecaptcha(SITE_KEY, RECAPTCHA_ACTION);
+      } catch {
+        throw new Error('Não foi possível carregar a verificação do reCAPTCHA. Recarregue a página e tente de novo.');
+      }
       await authClient.requestAccess({ ...form, recaptchaToken });
       setSent(true);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Não foi possível enviar a solicitação.');
-      setRecaptchaToken('');
-      if (widgetId.current !== null) window.grecaptcha?.reset(widgetId.current);
     } finally {
       setSubmitting(false);
     }
@@ -89,7 +60,12 @@ export function AccessRequestForm() {
         <Input label="Telefone" type="tel" required value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="(00) 00000-0000" />
         <Input label="E-mail" type="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="seu@email.com" />
         {SITE_KEY ? (
-          <div ref={recaptchaRef} className="min-h-[78px]" />
+          // O selo flutuante do Google fica oculto (globals); os termos pedem esta atribuição no lugar.
+          <p className="text-xs text-ink-muted">
+            Protegido pelo reCAPTCHA do Google. Valem a{' '}
+            <a className="underline hover:text-ink-strong" href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">Política de Privacidade</a> e os{' '}
+            <a className="underline hover:text-ink-strong" href="https://policies.google.com/terms" target="_blank" rel="noreferrer">Termos de Serviço</a>.
+          </p>
         ) : (
           <p className="text-xs text-ink-muted">A verificação reCAPTCHA não está disponível neste ambiente, por isso o envio está desativado.</p>
         )}

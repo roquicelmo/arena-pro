@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { hash } from 'bcryptjs';
 import { prisma } from '../../prisma';
 import { getAuthenticatedUser } from '../../auth';
+import { evaluateRecaptcha, type SiteverifyResult } from '../../../lib/recaptchaPolicy';
 
 const requestSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -34,8 +35,7 @@ const verifyRecaptcha = async (token: string, remoteIp?: string) => {
     body: params,
   });
   if (!response.ok) throw new Error('Não foi possível validar o reCAPTCHA.');
-  const result = await response.json() as { success?: boolean };
-  return result.success === true;
+  return evaluateRecaptcha(await response.json() as SiteverifyResult);
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -121,14 +121,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const parsed = requestSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ message: 'Informe nome, telefone, e-mail e complete o reCAPTCHA.' });
+    res.status(400).json({ message: 'Informe nome, telefone e e-mail válidos.' });
     return;
   }
 
   try {
-    const validCaptcha = await verifyRecaptcha(parsed.data.recaptchaToken);
-    if (!validCaptcha) {
-      res.status(400).json({ message: 'A validação do reCAPTCHA não foi concluída.' });
+    const captcha = await verifyRecaptcha(parsed.data.recaptchaToken);
+    if (!captcha.ok) {
+      res.status(400).json({
+        message: captcha.reason === 'low-score'
+          ? 'Não conseguimos confirmar que a solicitação foi feita por uma pessoa. Tente novamente em alguns instantes.'
+          : 'A validação do reCAPTCHA não foi concluída.',
+      });
       return;
     }
 
