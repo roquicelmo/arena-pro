@@ -2,23 +2,26 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Migrar as telas de atletas, arenas, provas e agenda (e o painel, que lê os mesmos dados) para Server Components com mutações por Server Actions, apoiadas em services de domínio compartilhados com os handlers `/api`. Os componentes antigos dão lugar a componentes novos na identidade Arena, com skeletons, empty states, diálogos de confirmação e toasts.
+**Goal:** Migrar as telas de atletas, arenas, provas e agenda (e o painel, que lê os mesmos dados) para Server Components com mutações por Server Actions, apoiadas em services de domínio compartilhados com os handlers `/api`. Os componentes antigos dão lugar a componentes novos na identidade Arena, com skeletons, empty states, diálogos de confirmação e toasts. Entra também o **manejo de cadastros** (spec 6.9): Admin e Manager compartilham atletas e arenas com vários usuários, e os seletores de proprietário saem dos modais.
 
-**Architecture:** As regras de escrita (ownership, dono pedido por gerente, deduplicação de arena, criação de prova com arena nova em transação) passam a morar em *commands* em `src/server/services/commands/*`, sem `server-only`, para que tanto as Server Actions quanto os handlers `/api` possam importá-los. Cada Server Action (`src/server/actions/*`, `'use server'`) passa por um helper único, `runAction`: `requireActionUser` → `schema.safeParse` (Zod) → command → `revalidatePath`, com retorno `ActionResult<T>`. No cliente, o hook `useAction` cuida do estado pendente, dos erros por campo, dos toasts e da sessão expirada. Os filtros por dono passam para a URL (`?dono=`) e são aplicados no servidor pelos services de leitura.
+**Architecture:** As regras de escrita (ownership, dono pedido por gerente, deduplicação de arena, criação de prova com arena nova em transação) passam a morar em *commands* em `src/server/services/commands/*`, sem `server-only`, para que tanto as Server Actions quanto os handlers `/api` possam importá-los. Cada Server Action (`src/server/actions/*`, `'use server'`) passa por um helper único, `runAction`: `requireActionUser` → `schema.safeParse` (Zod) → command → `revalidatePath`, com retorno `ActionResult<T>`. No cliente, o hook `useAction` cuida do estado pendente, dos erros por campo, dos toasts e da sessão expirada. Os filtros por dono passam para a URL (`?dono=`) e são aplicados no servidor pelos services de leitura. Atletas e arenas ganham tabelas de vínculo (`AthleteShare`, `ArenaShare`, migration aditiva aprovada pelo usuário), e o escopo deles passa a ser "dono ou compartilhado" (`accessScope`); o escopo estrito de dono (`ownerScope`) continua valendo para desativar e para provas.
 
 **Tech Stack:** Next.js 16.4 App Router (Server Actions, `revalidatePath`), React 19.2, Prisma 6.19, Zod 4.6, Tailwind 4 (tokens Arena), sonner, Vitest + Testing Library, Playwright.
 
-**Spec:** [docs/superpowers/specs/2026-11-16-refatoracao-ux-arquitetura-design.md](../specs/2026-11-16-refatoracao-ux-arquitetura-design.md), seções 5, 6.3, 6.5 e 9 (fase 2). Regras de negócio: [docs/project-technical-reference.md](../../project-technical-reference.md).
+**Spec:** [docs/superpowers/specs/2026-11-16-refatoracao-ux-arquitetura-design.md](../specs/2026-11-16-refatoracao-ux-arquitetura-design.md), seções 5, 6.3, 6.5, 6.9 e 9 (fase 2). Regras de negócio: [docs/project-technical-reference.md](../../project-technical-reference.md).
 **Fase anterior:** [2026-11-16-fase-1-shell-e-rotas.md](2026-11-16-fase-1-shell-e-rotas.md), no PR roquicelmo/rc-horse-sports#2.
 
 ## Global Constraints
 
 - **Branch:** `refactor/fase-2-cadastros`, criado a partir de `refactor/fase-1-rotas` (fase 1, ainda não mesclada). O PR aponta para `main` se o #2 já tiver sido mesclado; senão, para `refactor/fase-1-rotas`.
-- **Schema e migrations intocados.**
+- **Schema:** só a migration aditiva do compartilhamento (Task 2), aprovada pelo usuário. Nenhuma outra mudança no schema; nenhuma migration existente é alterada. Nunca `prisma migrate reset` nem `migrate dev` contra banco com dados: a migration é gerada por `prisma migrate diff` e aplicada com `npm run db:local:migrate` (dev) e `npm run db:test:reset` (testes).
 - **Endpoints `/api/*` continuam funcionando.** Os handlers de POST/PATCH/DELETE de atletas, arenas e provas passam a delegar aos commands; o JSON de resposta e os status HTTP de sucesso não mudam. Os GETs não mudam.
 - **Ownership no servidor, em todo command:**
-  - User só lê e altera os próprios registros; um `ownerId` enviado por User é ignorado (vira o próprio id).
-  - Admin, Manager e o legado Organizer (`MANAGER_ROLES`) alteram qualquer registro e podem escolher o dono; o dono escolhido precisa ser um usuário existente e ativo.
+  - **Atletas e arenas:** User lê, usa e edita os próprios e os compartilhados com ele (`accessScope`); desativar exige ser o dono ou gerente (`canAccessOwnerData`). Usuário compartilhado que tenta desativar recebe "Só o proprietário ou um gerente pode remover este cadastro." (403).
+  - **Provas:** um único dono (`createdById`, `eventScope`); não são compartilhadas.
+  - Um `ownerId` enviado por User é ignorado (vira o próprio id). Admin, Manager e o legado Organizer (`MANAGER_ROLES`) alteram qualquer registro.
+  - **Os formulários de cadastro não têm seletor de proprietário:** o cadastro nasce do usuário que o criou. Atribuir a outros usuários é feito só na tela `/cadastros` (Task 8). A API continua aceitando `ownerId` de gerente, validado (usuário existente e ativo), por compatibilidade.
+  - Só `MANAGER_ROLES` compartilham, removem compartilhamento e alteram o responsável de provas.
   - Registro inexistente, inativo ou fora do escopo responde "não encontrado" (404 na API), sem revelar existência.
 - **Papéis:** sempre `OPERATOR_ROLES`/`MANAGER_ROLES`/`ownerScope` de `src/server/permissions.ts` e `src/server/services/scope.ts`. Nenhum array de papéis literal e nenhum `role === 'USER'` em código novo ou tocado.
 - **Contrato da Server Action:** retorno `{ ok: true, data } | { ok: false, message, fieldErrors?, code? }`. Server Actions nunca lançam para o cliente; erro inesperado vira mensagem genérica e `console.error` no servidor.
@@ -37,11 +40,11 @@
 
 ## Review Focus
 
-1. **Erro de validação ou de servidor no meio do cadastro** (nome com 1 letra, UF inválida, arena duplicada) → o diálogo continua aberto com tudo o que foi digitado, o erro aparece junto do campo e nenhum toast duplica a mensagem. Testes nas Tasks 4 e 5.
-2. **Sessão expirada com o formulário aberto** → ao salvar, aviso "Sua sessão expirou" e ida para `/login?next=/atletas&reason=expired`, sem tela quebrada. Teste na Task 4.
-3. **User adulterando a chamada** (id de atleta, arena ou prova de outro usuário, ou `ownerId` alheio) → "não encontrado" ou o dono vira o próprio User; nada é alterado. Testes na Task 2.
-4. **Duplo clique em Salvar** → um único registro criado; o botão fica desabilitado e o hook ignora a segunda chamada enquanto a primeira está pendente. Testes na Task 1 (hook) e na Task 4 (e2e).
-5. **Celular a 375px com nome longo** (atleta ou prova com 60+ caracteres) → sem scroll horizontal, nome truncado ou quebrado, diálogo inteiro visível. Testes nas Tasks 4 e 5.
+1. **Erro de validação ou de servidor no meio do cadastro** (nome com 1 letra, UF inválida, arena duplicada) → o diálogo continua aberto com tudo o que foi digitado, o erro aparece junto do campo e nenhum toast duplica a mensagem. Testes nas Tasks 5 e 6.
+2. **Sessão expirada com o formulário aberto** → ao salvar, aviso "Sua sessão expirou" e ida para `/login?next=/atletas&reason=expired`, sem tela quebrada. Teste na Task 5.
+3. **User adulterando a chamada** (id de atleta, arena ou prova de outro usuário, `ownerId` alheio, desativar um cadastro só compartilhado com ele, ou chamar uma action de compartilhamento) → "não encontrado", recusa ou o dono vira o próprio User; nada é alterado. Testes nas Tasks 3 e 8.
+4. **Duplo clique em Salvar** → um único registro criado; o botão fica desabilitado e o hook ignora a segunda chamada enquanto a primeira está pendente. Testes na Task 1 (hook) e na Task 5 (e2e).
+5. **Celular a 375px com nome longo** (atleta ou prova com 60+ caracteres) → sem scroll horizontal, nome truncado ou quebrado, diálogo inteiro visível. Testes nas Tasks 5 e 6.
 
 ---
 
@@ -135,7 +138,86 @@ Expected: verde
 
 ---
 
-### Task 2: Commands de atletas, arenas e provas; handlers `/api` delegam
+### Task 2: Compartilhamento — migration aditiva e escopo "dono ou compartilhado"
+
+**Files:**
+- Modify: `prisma/schema.prisma` (modelos `AthleteShare` e `ArenaShare`; relações de volta `shares` em `Athlete` e `Arena`, `athleteShares` e `arenaShares` em `User`)
+- Create: `prisma/migrations/20261116120000_add_record_shares/migration.sql`
+- Modify: `src/server/services/scope.ts` e `scope.test.ts` (`accessScope`)
+- Modify: `src/server/services/raw.ts` (`findAthletesRaw` e `findArenasRaw` usam `accessScope`)
+- Modify: `src/server/services/errors.ts` (status `403`)
+- Modify: `prisma/seed-e2e.ts` e `e2e/fixtures/users.ts` (`TEST_SHARED_ATHLETE`)
+- Modify: `src/components/ui/Dialog.tsx` e `Dialog.test.tsx`; `src/server/actions/runAction.ts` e `runAction.test.ts` (achados da revisão da Task 1)
+- Create: `e2e/shares.spec.ts`
+
+**Interfaces:**
+- Consumes: `ownerScope`, `isAdmin`/`isManager`, `DomainError` (Task 1).
+- Produces:
+  - Prisma:
+    ```prisma
+    model AthleteShare {
+      athleteId String
+      userId    String
+      createdAt DateTime @default(now())
+      athlete   Athlete  @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+      user      User     @relation("AthleteShares", fields: [userId], references: [id], onDelete: Cascade)
+      @@id([athleteId, userId])
+      @@index([userId])
+    }
+    ```
+    `ArenaShare` igual, com `arenaId` e a relação `"ArenaShares"`.
+  - `accessScope(user: ScopeUser, ownerId?: string): { OR?: Array<{ ownerId: string } | { shares: { some: { userId: string } } }> }`. User → `{ OR: [{ ownerId: user.id }, { shares: { some: { userId: user.id } } }] }`, ignorando o filtro. Gerente com filtro `X` → o mesmo `OR` com `X`. Gerente sem filtro → `{}`. Serve tanto para `Athlete` quanto para `Arena`. `ownerScope` continua igual (escopo estrito).
+  - `DomainError.status` passa a aceitar `403`.
+  - `TEST_SHARED_ATHLETE = 'PEZEIRO B1'`: o seed de e2e compartilha esse atleta do user B com o user A. Os testes existentes continuam válidos: o user A segue sem ver `CABECEIRO B1`, e as contagens do user B não mudam.
+  - `Dialog`: o clique no fundo só fecha quando o `mousedown` e o `click` acontecem ambos no próprio `<dialog>`. Assim, arrastar uma seleção de texto de um campo até o fundo não fecha o diálogo nem perde o que foi digitado.
+  - `runAction`: se `revalidatePath` falhar depois de o handler ter concluído, a falha vai para `console.error` e o retorno continua `{ ok: true, data }`, porque a mutação já aconteceu.
+
+- [ ] **Step 1: Escrever os testes que falham**
+
+`scope.test.ts`:
+```ts
+const shared = (id: string) => ({ OR: [{ ownerId: id }, { shares: { some: { userId: id } } }] });
+expect(accessScope({ id: 'u1', role: 'USER' }, 'u2')).toEqual(shared('u1'));
+expect(accessScope({ id: 'm1', role: 'MANAGER' }, 'u2')).toEqual(shared('u2'));
+expect(accessScope({ id: 'a1', role: 'ADMIN' })).toEqual({});
+expect(accessScope({ id: 'v1', role: 'VIEWER' })).toEqual(shared('v1'));
+```
+
+`Dialog.test.tsx`: `mousedown dentro do campo e click no fundo não fecha` (`fireEvent.mouseDown(input)` seguido de `fireEvent.click(dialog)` → `onClose` não chamado); `mousedown e click no fundo fecham`.
+
+`runAction.test.ts`: `falha ao revalidar depois do sucesso ainda devolve ok` (`revalidatePath` lança → `{ ok: true, data }` e `console.error` chamado).
+
+`e2e/shares.spec.ts`:
+```ts
+test('user A recebe no GET /api/athletes o atleta compartilhado do B, e só ele', async ({ page }) => {
+  await loginAs(page, 'userA');
+  const names = (await (await page.request.get('/api/athletes')).json()).map((a: { name: string }) => a.name);
+  expect(names).toContain(TEST_SHARED_ATHLETE);
+  expect(names).not.toContain('CABECEIRO B1');
+});
+```
+
+- [ ] **Step 2: Rodar e confirmar a falha**
+
+Run: `npm test`
+Expected: FAIL (`accessScope` inexistente; testes novos do Dialog e do runAction falham)
+
+- [ ] **Step 3: Escrever o schema e gerar a migration sem tocar em banco com dados**
+
+Salve o schema anterior com `git show HEAD:prisma/schema.prisma > <scratch>/schema.before.prisma` e gere o SQL com `npx prisma migrate diff --from-schema-datamodel <scratch>/schema.before.prisma --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/20261116120000_add_record_shares/migration.sql`. O SQL só pode conter `CREATE TABLE`, `CREATE INDEX` e `ALTER TABLE ... ADD CONSTRAINT` das duas tabelas novas. Depois rode `npx prisma generate` e `npm run db:local:migrate`.
+
+- [ ] **Step 4: Implementar `accessScope`, as consultas brutas, o seed e os ajustes do Dialog e do runAction**
+
+- [ ] **Step 5: Rodar tudo**
+
+Run: `npm run lint && npm test && npm run test:e2e`
+Expected: verde. O `globalSetup` recria o banco de testes com a migration nova.
+
+- [ ] **Step 6: Commit** — `feat: compartilhamento de atletas e arenas (migration aditiva) e escopo dono-ou-compartilhado`
+
+---
+
+### Task 3: Commands de atletas, arenas e provas; handlers `/api` delegam
 
 **Files:**
 - Create: `src/types/arenas.ts` (sai o `ArenaOption` de `src/components/EventsPage.tsx`, item adiado da fase 1)
@@ -145,17 +227,17 @@ Expected: verde
 - Test: `src/server/services/commands/athletes.test.ts`, `arenas.test.ts`, `events.test.ts` (com `vi.mock('../../prisma')`)
 
 **Interfaces:**
-- Consumes: `prisma`, `ownerScope`/`eventScope`, `isAdmin`/`isManager`, `DomainError`/`notFound` (Task 1), `eventInclude` (`raw.ts`).
+- Consumes: `prisma`, `ownerScope`/`eventScope`, `accessScope` (Task 2), `canAccessOwnerData`/`isAdmin`/`isManager`, `DomainError`/`notFound` (Task 1), `eventInclude` (`raw.ts`).
 - Produces:
   - `interface ArenaOption { id: string; name: string; city: string; state: string; ownerId?: string; ownerName?: string }`
   - `resolveOwnerId(user: ScopeUser, requested?: string): Promise<string>`. User → `user.id`, sempre. Gerente → `requested ?? user.id`; se `requested` não for um usuário ativo, lança `DomainError('Proprietário inválido.', { field: 'ownerId' })`.
   - `interface AthleteData { name: string; nickname?: string | null; phone?: string | null; email?: string | null; city?: string | null; state?: string | null; headHandicap: number; heelHandicap: number }`
-  - `createAthlete(user, data: AthleteData & { ownerId?: string }): Promise<Athlete>`; `updateAthlete(user, id: string, data: Partial<AthleteData> & { ownerId?: string }): Promise<Athlete>` (`ownerId` só é aplicado para gerente); `deactivateAthlete(user, id): Promise<void>` (`active: false`). Alvo procurado com `{ id, active: true, ...ownerScope(user) }`; ausente → `notFound('Atleta')`.
+  - `createAthlete(user, data: AthleteData & { ownerId?: string }): Promise<Athlete>`; `updateAthlete(user, id: string, data: Partial<AthleteData> & { ownerId?: string }): Promise<Athlete>` (`ownerId` só é aplicado para gerente); `deactivateAthlete(user, id): Promise<void>` (`active: false`). Alvo procurado com `{ id, active: true, ...accessScope(user) }`; ausente → `notFound('Atleta')`. Para desativar, se `!canAccessOwnerData(user.role, user.id, alvo.ownerId)` → `DomainError('Só o proprietário ou um gerente pode remover este cadastro.', { status: 403 })`.
   - `interface ArenaData { name: string; city: string; state: string }`
   - `createArena(user, data: ArenaData & { ownerId?: string }, tx?: Prisma.TransactionClient): Promise<{ arena: Arena; created: boolean }>`. Se já existe arena ativa com o mesmo nome, cidade e UF (comparação sem diferenciar maiúsculas) do mesmo dono, devolve `{ arena: existente, created: false }`.
   - `updateArena(user, id, data: Partial<ArenaData>): Promise<Arena>`. Renomear para nome+cidade+UF de outra arena ativa do mesmo dono → `DomainError('Já existe uma arena com esse nome nessa cidade.', { status: 409, field: 'name' })`.
-  - `deactivateArena(user, id): Promise<void>`. As provas que usam a arena continuam com ela; ela só some das listas de escolha.
-  - `createEvent(user, data: { name: string; eventDate: Date; arenaId?: string; newArena?: ArenaData; ownerId?: string }): Promise<Event & EventInclude>`. Em `prisma.$transaction`: resolve o dono; com `arenaId`, a arena precisa estar ativa e no `ownerScope` do usuário (senão `DomainError('Arena não encontrada ou inativa.', { status: 404, field: 'arenaId' })`); sem `arenaId`, usa `createArena(..., tx)` com o mesmo dono (reaproveita a existente); cria a prova com `status: 'DRAFT'`.
+  - `deactivateArena(user, id): Promise<void>`. As provas que usam a arena continuam com ela; ela só some das listas de escolha. `updateArena` e `deactivateArena` procuram o alvo com `accessScope` e aplicam a mesma regra de 403 dos atletas ao desativar.
+  - `createEvent(user, data: { name: string; eventDate: Date; arenaId?: string; newArena?: ArenaData; ownerId?: string }): Promise<Event & EventInclude>`. Em `prisma.$transaction`: resolve o dono; com `arenaId`, a arena precisa estar ativa e no `accessScope` do usuário (arena compartilhada vale) (senão `DomainError('Arena não encontrada ou inativa.', { status: 404, field: 'arenaId' })`); sem `arenaId`, usa `createArena(..., tx)` com o mesmo dono (reaproveita a existente); cria a prova com `status: 'DRAFT'`.
   - `updateEvent(user, id, data: { name?: string; eventDate?: Date }): Promise<Event & EventInclude>`; `cancelEvent(user, id): Promise<void>` (`status: 'CANCELLED'`). Alvo procurado com `{ id, ...eventScope(user) }`; ausente → `notFound('Prova')`. Cancelar uma prova já cancelada não faz nada e não dá erro.
   - Handlers: `DomainError` vira `res.status(error.status).json({ message: error.message })`. O POST de `/api/arenas` responde 200 quando `created === false` e 201 quando cria, como hoje.
 
@@ -176,11 +258,18 @@ it('gerente com dono inexistente recebe erro no campo ownerId', async () => {
 it('user não altera atleta de outro (404)', async () => {
   prisma.athlete.findFirst.mockResolvedValue(null);
   await expect(updateAthlete({ id: 'u1', role: 'USER' }, 'a-do-u2', { name: 'Novo' })).rejects.toMatchObject({ status: 404, message: 'Atleta não encontrado.' });
-  expect(prisma.athlete.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'a-do-u2', active: true, ownerId: 'u1' } }));
+  expect(prisma.athlete.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'a-do-u2', active: true, OR: [{ ownerId: 'u1' }, { shares: { some: { userId: 'u1' } } }] } }));
   expect(prisma.athlete.update).not.toHaveBeenCalled();
 });
 it('user não troca o dono ao editar', async () => { /* ownerId: 'u2' no input → update sem ownerId */ });
 it('desativar marca active=false', async () => { /* update com { active: false } */ });
+it('usuário com quem o atleta foi compartilhado edita, mas não desativa (403)', async () => {
+  prisma.athlete.findFirst.mockResolvedValue({ id: 'a1', ownerId: 'u2' });
+  await updateAthlete({ id: 'u1', role: 'USER' }, 'a1', { name: 'Novo nome' });
+  expect(prisma.athlete.update).toHaveBeenCalledTimes(1);
+  await expect(deactivateAthlete({ id: 'u1', role: 'USER' }, 'a1')).rejects.toMatchObject({ status: 403, message: 'Só o proprietário ou um gerente pode remover este cadastro.' });
+  expect(prisma.athlete.update).toHaveBeenCalledTimes(1);
+});
 ```
 
 `arenas.test.ts`:
@@ -210,7 +299,7 @@ Expected: verde. As telas ainda usam a API; os e2e da fase 1 provam que o contra
 
 ---
 
-### Task 3: Schemas Zod e Server Actions dos cadastros
+### Task 4: Schemas Zod e Server Actions dos cadastros
 
 **Files:**
 - Create: `src/lib/schemas/cadastros.ts` (puro)
@@ -219,7 +308,7 @@ Expected: verde. As telas ainda usam a API; os e2e da fase 1 provam que o contra
 - Test: `src/lib/schemas/cadastros.test.ts`, `src/server/actions/actions.test.ts`, `src/lib/mappers.test.ts` (casos novos)
 
 **Interfaces:**
-- Consumes: `runAction` (Task 1), commands (Task 2), `toCompetitor`, `toEventSummary`.
+- Consumes: `runAction` (Task 1), commands (Task 3), `toCompetitor`, `toEventSummary`.
 - Produces:
   - Em `src/types/roping.ts`, `Competitor` ganha `estado?: string`. `PersistedAthlete` ganha `nickname?: string | null` e `state?: string | null`.
   - Em `src/types/events.ts`, `EventSummary` ganha `isoDate: string` (`AAAA-MM-DD`, calculado em UTC).
@@ -232,18 +321,16 @@ Expected: verde. As telas ainda usam a API; os e2e da fase 1 provam que o contra
 | | `city` | opcional, até 100 |
 | | `state` | opcional, maiúsculas, `/^[A-Z]{2}$/`: "Use a sigla do estado, ex.: MG." |
 | | `headHandicap`, `heelHandicap` | obrigatório ("Informe o handicap."), número 0–10 ("O handicap vai de 0 a 10."), múltiplo de 0,5 ("Use múltiplos de 0,5."); aceita string numérica com vírgula ou ponto |
-| | `ownerId` | opcional |
 | `arenaSchema` | `name` | trim, 2–120: "Informe o nome da arena." |
 | | `city` | trim, 2–100: "Informe a cidade." |
 | | `state` | obrigatório, mesma regra de UF |
-| | `ownerId` | opcional |
 | `eventSchema` | `name` | trim, 3–160: "Informe o nome da prova (mínimo 3 letras)." |
 | | `eventDate` | `AAAA-MM-DD` e data real: "Informe uma data válida." |
 | | `arenaId` | opcional |
 | | `arenaName`, `city`, `state` | obrigatórios só sem `arenaId` (`superRefine` com `path` de cada campo); mensagens do `arenaSchema` |
-| | `ownerId` | opcional |
 | `eventUpdateSchema` | `name`, `eventDate` | as mesmas regras, ambos obrigatórios |
 
+  - Nenhum schema tem `ownerId`: as actions sempre criam para o próprio usuário (spec 6.9). Chaves desconhecidas são descartadas pelo Zod.
   - Tipos de entrada: `AthleteFormInput = z.input<typeof athleteSchema>`, `ArenaFormInput`, `EventFormInput`, `EventUpdateInput`.
   - Actions (todas via `runAction`; ids validados com `z.string().min(1)`):
 
@@ -304,7 +391,7 @@ Expected: verde
 
 ---
 
-### Task 4: Tela de atletas (e cadastro rápido do sorteio avulso)
+### Task 5: Tela de atletas (e cadastro rápido do sorteio avulso)
 
 **Files:**
 - Modify: `app/(app)/atletas/page.tsx` (lê `searchParams.dono`; `PageHeader` com a ação "Novo atleta")
@@ -318,18 +405,19 @@ Expected: verde
 - Test: `src/components/athletes/AthleteFormDialog.test.tsx`
 
 **Interfaces:**
-- Consumes: `listAthletes(user, { ownerId })`, `listOwners`, actions de atleta (Task 3), `useAction`, `Dialog`, `OwnerFilter`, `useConfirm`, `EmptyState`.
+- Consumes: `listAthletes(user, { ownerId })` (já com `accessScope`, Task 2), `listOwners`, actions de atleta (Task 4), `useAction`, `Dialog`, `OwnerFilter`, `useConfirm`, `EmptyState`, `TEST_SHARED_ATHLETE`.
 - Produces:
-  - `AthleteFormDialog({ open, onClose, athlete?, owners, canAssignOwner, defaultOwnerId, onSaved? }: { open: boolean; onClose: () => void; athlete?: Competitor; owners: Owner[]; canAssignOwner: boolean; defaultOwnerId: string; onSaved?: (athlete: Competitor) => void })`.
+  - `AthleteFormDialog({ open, onClose, athlete?, onSaved? }: { open: boolean; onClose: () => void; athlete?: Competitor; onSaved?: (athlete: Competitor) => void })`.
     - Título "Novo atleta" ou "Editar atleta".
-    - Campos, todos com `Input`/`Select` e rótulo: "Nome", "Apelido", "Cidade", "UF", "Handicap de cabeceiro", "Handicap de pezeiro" (`inputMode="decimal"`, padrão `2.5` ao criar) e, para gerente, "Proprietário".
+    - Campos, todos com `Input`/`Select` e rótulo: "Nome", "Apelido", "Cidade", "UF", "Handicap de cabeceiro", "Handicap de pezeiro" (`inputMode="decimal"`, padrão `2.5` ao criar). Sem campo de proprietário.
     - Botões "Cancelar" e "Salvar atleta" (`loading` enquanto pendente).
     - O estado do formulário só é limpo depois de um sucesso; numa falha, tudo o que foi digitado continua no lugar.
     - Sucesso: `toast.success('Atleta cadastrado.')` ou `toast.success('Atleta atualizado.')`, chama `onSaved` e fecha.
-  - `AthletesView({ athletes, owners, canFilterOwners, ownerFilter, defaultOwnerId })`.
+  - `AthletesView({ athletes, owners, canFilterOwners, ownerFilter, currentUserId })`.
     - Barra com a busca (`Input` com rótulo "Buscar atleta", filtra no cliente por nome, apelido e cidade, sem diferenciar acentos) e o `OwnerFilter` para gerente.
     - Contagem: "N atletas" (ou "1 atleta").
     - Lista única, sem marcação duplicada para desktop e mobile: no `md+`, linhas em grade com o cabeçalho Nome · Cidade · HC cab. · HC pé · [Proprietário] · Ações; no mobile, as mesmas linhas empilhadas. Cada linha é um `<li>` com o nome em `truncate`.
+    - Atleta de outro dono, visto por um User porque foi compartilhado (`athlete.ownerId !== currentUserId` e o usuário não é gerente): a linha mostra o `Badge` "Compartilhado" e o texto "por <ownerName>", e não tem o botão Remover.
     - Ações por linha: botões de ícone com `aria-label="Editar <nome>"` e `aria-label="Remover <nome>"`.
     - Remover usa `useConfirm` (título "Remover o atleta?"; descrição "<nome> sai da lista de atletas. Inscrições e sorteios já feitos não mudam."; botão "Remover atleta"; tom `danger`), depois `deactivateAthleteAction` com `toastErrors: true` e o sucesso "Atleta removido.".
     - Empty states: sem atletas, "Nenhum atleta cadastrado", com o botão "Cadastrar atleta"; busca sem resultado, "Nenhum atleta encontrado", com o botão "Limpar busca".
@@ -389,6 +477,17 @@ test('manager filtra por proprietário pela URL', async ({ page }) => {
   await expect(page.getByText('CABECEIRO A1')).toHaveCount(0);
 });
 ```
+```ts
+test('atleta compartilhado aparece para o user A, editável e sem remover', async ({ page }) => {
+  await loginAs(page, 'userA');
+  await page.goto('/atletas');
+  const row = page.getByRole('listitem').filter({ hasText: TEST_SHARED_ATHLETE });
+  await expect(row).toContainText('Compartilhado');
+  await expect(row).toContainText('User B Teste');
+  await expect(page.getByRole('button', { name: `Editar ${TEST_SHARED_ATHLETE}` })).toBeVisible();
+  await expect(page.getByRole('button', { name: `Remover ${TEST_SHARED_ATHLETE}` })).toHaveCount(0);
+});
+```
 Ajuste também `e2e/quick-draw.spec.ts`: um teste novo abre o cadastro rápido do sorteio avulso, cria `ATLETA AVULSO <projeto>` e confere que ele aparece na lista de disponíveis sem recarregar a página.
 
 - [ ] **Step 2: Rodar e confirmar a falha**
@@ -407,7 +506,7 @@ Expected: verde
 
 ---
 
-### Task 5: Tela de provas e arenas
+### Task 6: Tela de provas e arenas
 
 **Files:**
 - Modify: `app/(app)/provas/(lista)/page.tsx` (lê `searchParams.dono` e `searchParams.canceladas`; `PageHeader` com a ação "Nova prova")
@@ -424,27 +523,27 @@ Expected: verde
 - Test: `src/components/events/EventFormDialog.test.tsx`
 
 **Interfaces:**
-- Consumes: `listEvents(user, { ownerId })`, `listArenas(user, { ownerId })`, `listOwners`, actions de provas e arenas (Task 3), `useAction`, `Dialog`, `OwnerFilter`, `useConfirm`.
+- Consumes: `listEvents(user, { ownerId })`, `listArenas(user, { ownerId })`, `listOwners`, actions de provas e arenas (Task 4), `useAction`, `Dialog`, `OwnerFilter`, `useConfirm`.
 - Produces:
   - Layout: no `xl`, duas colunas (`xl:grid-cols-[minmax(0,1fr)_22rem]`), com as provas à esquerda e `ArenasPanel` à direita; abaixo do `xl`, as arenas vêm depois das provas.
-  - `EventsView({ events, arenas, owners, canFilterOwners, ownerFilter, showCancelled, defaultOwnerId })`.
+  - `EventsView({ events, arenas, owners, canFilterOwners, ownerFilter, showCancelled })`.
     - Cada prova é um `<article>` com o nome em `h2` (quebra linha, sem estourar), a data, a arena, o `EventStatusBadge`, "N inscritos" e, para gerente, "Proprietário: <nome>".
     - Ações: link "Detalhes" para `/provas/<id>` (os e2e da fase 1 dependem de `article` + link "Detalhes"); botões de ícone `aria-label="Editar <nome>"` e `aria-label="Cancelar <nome>"`, ambos ocultos em prova cancelada.
     - As provas canceladas ficam fora da lista por padrão. Um link-botão "Mostrar canceladas" / "Ocultar canceladas" alterna `?canceladas=1`, preservando `dono`.
     - Cancelar usa `useConfirm` com o texto atual ("Cancelar a prova?", `A prova "<nome>" será marcada como cancelada.`, "Cancelar prova", "Manter prova", `danger`), depois `cancelEventAction` com `toastErrors: true` e o sucesso "Prova cancelada.".
     - Empty states: sem provas, "Nenhuma prova cadastrada", com o botão "Cadastrar prova"; com canceladas ocultas e nenhuma ativa, "Nenhuma prova ativa", com o link "Mostrar canceladas".
-  - `EventFormDialog({ open, onClose, event?, arenas, owners, canAssignOwner, defaultOwnerId })`.
+  - `EventFormDialog({ open, onClose, event?, arenas })`.
     - Título "Nova prova" ou "Editar prova".
-    - Campos: "Nome da prova", "Data" (`type="date"`, preenchido com `isoDate` na edição) e "Proprietário" (gerente, só na criação).
+    - Campos: "Nome da prova" e "Data" (`type="date"`, preenchido com `isoDate` na edição). Sem campo de proprietário; o responsável é trocado em `/cadastros`.
     - Na criação há ainda o `Select` "Arena", com a primeira opção "Cadastrar nova arena" seguida das arenas `nome · cidade/UF`. Com "Cadastrar nova arena", aparecem "Nome da nova arena", "Cidade" e "UF".
     - Na edição, a arena aparece só como texto ("Arena: <nome>"); ela não muda nesta fase.
     - Botão "Salvar prova". Sucesso: "Prova criada." ou "Prova atualizada.".
-  - `ArenasPanel({ arenas, owners, canAssignOwner, defaultOwnerId })`.
+  - `ArenasPanel({ arenas, canSeeOwners, currentUserId })`.
     - Título "Arenas", botão "Nova arena" e a lista `nome` + `cidade/UF` (+ dono para gerente).
-    - Botões `aria-label="Editar <nome>"` e `aria-label="Desativar <nome>"`.
+    - Botões `aria-label="Editar <nome>"` e `aria-label="Desativar <nome>"`. Arena compartilhada com um User (dono diferente) mostra "Compartilhada" e não tem Desativar.
     - Desativar pede confirmação ("Desativar a arena?"; "<nome> deixa de aparecer na escolha de arenas. Provas já cadastradas continuam com ela."; "Desativar arena").
     - Empty state: "Nenhuma arena cadastrada".
-  - `ArenaFormDialog`: título "Nova arena" ou "Editar arena"; campos "Nome", "Cidade", "UF" e "Proprietário" (gerente, só na criação); botão "Salvar arena"; sucesso "Arena cadastrada." ou "Arena atualizada.".
+  - `ArenaFormDialog`: título "Nova arena" ou "Editar arena"; campos "Nome", "Cidade" e "UF"; botão "Salvar arena"; sucesso "Arena cadastrada." ou "Arena atualizada.".
   - Skeleton: cabeçalho, 3 cartões de prova e, no `xl`, a coluna de arenas.
 
 - [ ] **Step 1: Escrever os testes que falham**
@@ -510,7 +609,7 @@ Expected: verde, incluindo `event-routes.spec.ts`, `contrast.spec.ts` (`/provas`
 
 ---
 
-### Task 6: Agenda e painel com filtro por dono no servidor
+### Task 7: Agenda e painel com filtro por dono no servidor
 
 **Files:**
 - Modify: `app/(app)/agenda/page.tsx` e `loading.tsx`
@@ -563,14 +662,136 @@ Expected: verde
 
 ---
 
-### Task 7: Documentação, revisão visual e verificação final
+### Task 8: Tela de manejo de cadastros (`/cadastros`)
+
+**Files:**
+- Create: `src/lib/schemas/shares.ts` (puro) e `shares.test.ts`
+- Create: `src/server/services/commands/shares.ts` (sem `server-only`) e `shares.test.ts`
+- Create: `src/server/services/records.ts` (`server-only`)
+- Create: `src/server/actions/shares.ts` (`'use server'`)
+- Create: `app/(app)/cadastros/layout.tsx` (`requireRole(MANAGER_ROLES)`, acima do loading boundary), `page.tsx`, `loading.tsx`
+- Create: `src/components/records/RecordsManager.tsx`, `ShareDialog.tsx`, `ReassignDialog.tsx` (client)
+- Modify: `src/components/shell/navItems.ts` e `navItems.test.ts` (item "Cadastros")
+- Create: `e2e/records.spec.ts`
+
+**Interfaces:**
+- Consumes: `runAction`, `useAction`, `Dialog`, `useConfirm` (Task 1); `accessScope`/`eventScope` e as tabelas de vínculo (Task 2); `DomainError`; `EventStatusBadge` (Task 6); `requireRole`.
+- Produces:
+  - `RecordType = 'athlete' | 'arena'`.
+  - `shareSchema = { type: RecordType; ids: string[] (min 1: "Selecione ao menos um cadastro."); userIds: string[] (min 1: "Selecione ao menos um usuário.") }`.
+  - `reassignSchema = { ids: string[] (min 1: "Selecione ao menos uma prova."); ownerId: string (min 1: "Selecione o responsável.") }`.
+  - Commands:
+    - `shareRecords(user, input: { type: RecordType; ids: string[]; userIds: string[] }): Promise<{ added: number }>`
+    - `unshareRecords(user, input: same): Promise<{ removed: number }>`
+    - `reassignEvents(user, input: { ids: string[]; ownerId: string }): Promise<{ updated: number }>`
+    - Regras comuns:
+      - Só gerente; qualquer outro papel → `DomainError('Você não tem permissão para esta ação.', { status: 403 })`.
+      - Os `ids` precisam existir e estar ativos (provas: não canceladas); senão, `DomainError('Algum cadastro selecionado não existe mais. Recarregue a página.', { status: 404 })`.
+      - Os usuários de destino precisam estar ativos e ter papel em `OPERATOR_ROLES`; senão, `DomainError('Usuário inválido.', { field: 'userIds' })` ou `{ field: 'ownerId' }`.
+      - `shareRecords` usa `createMany({ skipDuplicates: true })` e não cria vínculo do dono com o próprio cadastro.
+  - Leitura:
+    - `listManagedRecords(user, { type: 'atletas' | 'arenas' | 'provas'; userId?: string }): Promise<ManagedRecord[]>`, com `ManagedRecord = { id: string; name: string; detail: string; ownerId: string | null; ownerName: string | null; sharedWith: Array<{ id: string; name: string }> }`.
+    - `detail`: atleta "Cidade/UF · HC 3,5 / 2,0"; arena "Cidade/UF"; prova "dd/mm/aaaa · Arena · Status".
+    - Com `userId`, atletas e arenas usam `accessScope(user, userId)` e provas usam `eventScope(user, userId)`. Provas canceladas ficam fora. `sharedWith` vem vazio em provas.
+    - `listShareTargets(user): Promise<Owner[]>`: usuários ativos com papel em `OPERATOR_ROLES`, por nome.
+  - Actions (`roles: MANAGER_ROLES`; revalidam `/cadastros`, `/atletas`, `/provas`, `/`, `/agenda`, `/sorteio-avulso`):
+    - `shareRecordsAction(input): ActionResult<{ added: number }>`
+    - `unshareRecordsAction(input): ActionResult<{ removed: number }>`
+    - `reassignEventsAction(input): ActionResult<{ updated: number }>`
+  - Item de menu "Cadastros", `href` `/cadastros`, logo depois de "Usuários", só para `MANAGER_ROLES`, com ícone lucide `FolderCog`.
+  - Página:
+    - `PageHeader` com o título "Manejo de cadastros" e a descrição "Compartilhe atletas e arenas com usuários e defina o responsável de cada prova."
+    - Abas em links, com `aria-current="page"`: Atletas, Arenas e Provas (`?tipo=atletas|arenas|provas`, padrão `atletas`), dentro de `nav` com `aria-label="Tipos de cadastro"`.
+    - Filtros: `Select` "Usuário" (`?usuario=`, primeira opção "Todos os usuários") e `Input` "Buscar" (filtro no cliente por nome e detalhe).
+    - Lista única e responsiva, como a de atletas.
+      - Colunas: seleção (checkbox `aria-label="Selecionar <nome>"`; no cabeçalho, `aria-label="Selecionar todos"`, que marca os visíveis), Nome, Detalhes, Proprietário e, em atletas e arenas, "Compartilhado com".
+      - "Compartilhado com" mostra chips com o nome e um botão `aria-label="Remover <usuário> de <nome>"`, que chama `unshareRecordsAction` sem confirmação (é reversível), com o sucesso "Compartilhamento removido.".
+    - Barra de seleção, visível com 1 ou mais itens:
+      - o texto "N selecionado(s)";
+      - em atletas e arenas, os botões "Compartilhar com…" e "Remover compartilhamento…";
+      - em provas, o botão "Alterar responsável…";
+      - o botão "Limpar seleção".
+      - Trocar de aba ou de filtro limpa a seleção.
+    - `ShareDialog({ open, onClose, mode: 'share' | 'unshare', type, ids, users, onDone })`:
+      - título "Compartilhar cadastros" ou "Remover compartilhamento";
+      - lista de usuários com checkbox e uma busca "Buscar usuário";
+      - botão "Compartilhar" ou "Remover";
+      - sucessos "Compartilhado com N usuário(s)." e "Compartilhamento removido.";
+      - erro dentro do diálogo.
+    - `ReassignDialog({ open, onClose, ids, users, onDone })`:
+      - título "Alterar responsável", `Select` "Responsável" e o texto "As provas selecionadas passam a ser deste usuário.";
+      - botão "Alterar responsável"; sucesso "Responsável alterado.".
+    - Empty state "Nenhum cadastro encontrado".
+  - Skeleton: cabeçalho, abas, filtros e 8 linhas.
+
+- [ ] **Step 1: Escrever os testes que falham**
+
+`commands/shares.test.ts`:
+- `user não compartilha (403) e nada é gravado`.
+- `compartilhar ignora o dono e usa skipDuplicates`: atleta `a1` do dono `u2`, `userIds: ['u2', 'u3']` → `athleteShare.createMany` com `data: [{ athleteId: 'a1', userId: 'u3' }]` e `skipDuplicates: true`.
+- `id inexistente → 404 'Algum cadastro selecionado não existe mais. Recarregue a página.'`.
+- `usuário de destino inativo → erro no campo userIds`.
+- `reassignEvents troca createdById das provas e recusa prova cancelada`.
+
+`schemas/shares.test.ts`: listas vazias geram as mensagens da tabela acima.
+
+`navItems.test.ts`: `navItemsFor('MANAGER')` contém `/cadastros` logo depois de `/usuarios`; `navItemsFor('USER')` não contém `/cadastros`.
+
+`e2e/records.spec.ts` (nomes com o projeto no fim):
+```ts
+test('manager compartilha um atleta com o user A e depois remove', async ({ page }, testInfo) => {
+  const name = `ATLETA COMPARTILHADO ${testInfo.project.name}`;
+  await loginAs(page, 'manager');
+  await createAthleteViaUi(page, name); // helper local: /atletas → Novo atleta → Salvar
+  await page.goto('/cadastros');
+  await page.getByRole('checkbox', { name: `Selecionar ${name}` }).check();
+  await page.getByRole('button', { name: 'Compartilhar com…' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Compartilhar cadastros' });
+  await dialog.getByRole('checkbox', { name: 'User A Teste' }).check();
+  await dialog.getByRole('button', { name: 'Compartilhar' }).click();
+  await expect(page.getByText('Compartilhado com 1 usuário(s).')).toBeVisible();
+  await loginAs(page, 'userA');
+  await page.goto('/atletas');
+  await expect(page.getByRole('listitem').filter({ hasText: name })).toContainText('Compartilhado');
+  await loginAs(page, 'manager');
+  await page.goto('/cadastros');
+  await page.getByRole('button', { name: `Remover User A Teste de ${name}` }).click();
+  await expect(page.getByText('Compartilhamento removido.')).toBeVisible();
+  await loginAs(page, 'userA');
+  await page.goto('/atletas');
+  await expect(page.getByText(name)).toHaveCount(0);
+});
+test('manager altera o responsável de uma prova para o user A', async ({ page }, testInfo) => { /* manager cria COPA RESP <projeto> em /provas → /cadastros?tipo=provas → seleciona → Alterar responsável… → User A Teste → login userA → /provas mostra a prova */ });
+test('filtro por usuário mostra só o que ele acessa', async ({ page }) => { /* manager → /cadastros?tipo=atletas → Usuário = User B Teste → CABECEIRO B1 e PEZEIRO B1 visíveis, CABECEIRO A1 ausente; a URL tem usuario= */ });
+test('user recebe 404 em /cadastros e não vê o item no menu', async ({ page, isMobile }) => { /* response.status() === 404; openNav; link "Cadastros" com count 0 */ });
+test('/cadastros sem scroll horizontal e sem erros de console', async ({ page }) => { /* manager; trackConsoleErrors; hasNoHorizontalScroll */ });
+```
+
+- [ ] **Step 2: Rodar e confirmar a falha**
+
+Run: `npm test && npx playwright test e2e/records.spec.ts --project=desktop`
+Expected: FAIL
+
+- [ ] **Step 3: Implementar schemas, commands, leitura, actions, página e componentes**
+
+- [ ] **Step 4: Rodar tudo**
+
+Run: `npm run lint && npm test && npm run test:e2e`
+Expected: verde
+
+- [ ] **Step 5: Commit** — `feat: manejo de cadastros com compartilhamento em lote e troca de responsável`
+
+---
+
+### Task 9: Documentação, revisão visual e verificação final
 
 **Files:**
 - Modify: `docs/project-technical-reference.md`:
   - o bullet desatualizado `app/page.tsx` é a entrada visual (~linha 268) passa a citar `app/(app)/layout.tsx` e as rotas;
   - a seção de componentes troca `EventsPage`/`AthletesPage` por `src/components/{events,arenas,athletes}`;
   - uma subseção nova, "Server Actions", descreve `runAction`, `ActionResult`, `useAction`, os commands e a regra de feedback;
-  - as seções de arenas e atletas registram a deduplicação de arena por dono e a validação do dono escolhido por gerente.
+  - as seções de arenas e atletas registram a deduplicação de arena por dono e a validação do dono escolhido por gerente;
+  - uma seção nova, "Compartilhamento de cadastros", descreve `AthleteShare`/`ArenaShare`, `accessScope`, quem pode compartilhar, editar e desativar, a tela `/cadastros` e a migration `20261116120000_add_record_shares`; as tabelas de rotas e de modelos ganham as entradas novas.
 - Modify: `app/dev/ui/UiShowcase.tsx` (mostra o `Dialog`)
 
 **Interfaces:**
@@ -594,7 +815,7 @@ Expected: tudo verde.
 
 - [ ] **Step 4: Revisão visual**
 
-Tire screenshots de `/`, `/atletas` (com o diálogo aberto e com erro de validação), `/provas` (com o diálogo de nova prova) e `/agenda`, no desktop (1440) e no mobile (375), e confira:
+Tire screenshots de `/`, `/atletas` (com o diálogo aberto e com erro de validação), `/provas` (com o diálogo de nova prova), `/agenda` e `/cadastros` (com seleção e o diálogo de compartilhar), no desktop (1440) e no mobile (375), e confira:
 - identidade Arena (areia, tinta couro, terracota, Barlow Condensed nos títulos);
 - diálogos inteiros visíveis no mobile;
 - sem scroll horizontal;

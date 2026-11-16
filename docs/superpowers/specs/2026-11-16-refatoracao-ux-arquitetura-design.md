@@ -49,7 +49,8 @@ operação nas provas, o objetivo é elevar três coisas:
 - Mudar o algoritmo de sorteio (`src/utils/drawAlgorithm.ts`) — ele é movido/
   reaproveitado, não reescrito.
 - Mudanças destrutivas no schema Prisma. Migrations só aditivas, e apenas se
-  indispensáveis (avisar antes).
+  indispensáveis (avisar antes). A única aprovada até aqui é a do
+  compartilhamento de cadastros (seção 6.9).
 - Trocar a stack (Auth.js, Prisma, Tailwind permanecem).
 - Tema escuro.
 - Adotar shadcn/Radix em bloco (componentes próprios continuam; Radix pode ser
@@ -159,6 +160,7 @@ app/
     atletas/page.tsx
     agenda/page.tsx
     usuarios/page.tsx        só Admin/Manager
+    cadastros/page.tsx       manejo de cadastros, só Admin/Manager (seção 6.9)
     relatorios/page.tsx
 ```
 
@@ -235,6 +237,8 @@ src/server/
     depois do primeiro tempo lançado ou da publicação.
 - **Prova "local-"**: remover o fallback que cria prova só no estado do
   navegador quando a API falha; erro vira toast. *(Chamada minha.)*
+- **Compartilhamento de cadastros**: ver seção 6.9 (mudança do modelo de
+  ownership de atletas e arenas).
 
 ### 6.5 Componentes
 
@@ -298,6 +302,46 @@ corridas em PDF**.
   sorteadas** (validadas por Zod; IDs de atletas conferidos como pertencentes
   ao escopo do usuário e nomes/handicaps relidos do banco). Não re-sorteia,
   para que o PDF seja exatamente o que foi revisado na tela.
+
+### 6.9 Manejo de cadastros (compartilhamento)
+
+Pedido do usuário durante a fase 2: o seletor de proprietário dentro de cada
+modal de cadastro é pouco intuitivo. Em vez dele, Admin e Manager ganham uma
+ferramenta para **atribuir cadastros a vários usuários**. Isso **não é
+transferência**: o cadastro passa a aparecer para mais de um usuário.
+
+Decisões do usuário (2026-11-16):
+
+- **Tipos compartilháveis:** atletas e arenas. **Provas continuam com um único
+  dono** (`createdById`), então o escopo de inscrições, sorteio, pista e
+  publicação (fases 3 e 4) não muda.
+- **Quem compartilha:** só `MANAGER_ROLES` (Admin, Manager e o legado
+  Organizer). User não compartilha.
+- **O que o usuário compartilhado pode fazer:** ver, usar (inscrições, sorteio
+  avulso) e **editar**. **Desativar** continua só com o dono e os gerentes.
+- **Modelo de dados:** migration **aditiva** com tabelas de vínculo N:N
+  `AthleteShare(athleteId, userId)` e `ArenaShare(arenaId, userId)`, chave
+  composta, `onDelete: Cascade` dos dois lados (usuário ou cadastro excluído
+  remove o vínculo; o cadastro em si segue a regra atual de dono).
+- **Escopo:** para atletas e arenas, o escopo de User passa a ser "dono **ou**
+  compartilhado comigo". O filtro de gerente por usuário mostra os cadastros a
+  que aquele usuário tem acesso (próprios ou compartilhados).
+- **Tela `/cadastros`** ("Manejo de cadastros", só `MANAGER_ROLES`, 404 para
+  os demais): abas Atletas, Arenas e Provas; filtro por usuário e busca;
+  seleção múltipla com ações em lote "Compartilhar com…" e "Remover
+  compartilhamento…"; cada linha mostra o dono e com quem está compartilhado.
+  Na aba Provas, que não são compartilháveis, a ação é "Alterar responsável"
+  (troca do dono único). *(Chamada minha: sem isso, gerentes perderiam o
+  único jeito de criar uma prova para outro usuário ao sair o seletor dos
+  modais.)*
+- Os modais de cadastro (atleta, arena, prova) **perdem o seletor de
+  proprietário**: o cadastro nasce do usuário que o criou.
+- Os endpoints `/api` mantêm o campo `ownerId` aceito hoje, por
+  compatibilidade, até serem removidos na fase 5.
+- **Impacto nas fases seguintes:** a fase 3 deve validar, na inscrição, que o
+  atleta está no escopo "dono ou compartilhado" do dono da prova (hoje a rota
+  de inscrição aceita qualquer atleta ativo); o sorteio avulso usa o mesmo
+  escopo. A fase 4 não muda, porque provas não são compartilhadas.
 
 ## 7. PDF da súmula de sorteio (decidido)
 
@@ -367,7 +411,9 @@ Cada fase termina implantável e validada (seção 8).
    identidade e proteção no servidor; cada seção ganha sua rota, inicialmente
    podendo reutilizar o componente antigo; `App.tsx` deixa de ser a entrada.
 2. **Cadastros** — atletas, arenas, provas, agenda: Server Components +
-   Server Actions + services; skeletons, empty states, diálogos, toasts.
+   Server Actions + services; skeletons, empty states, diálogos, toasts;
+   **manejo de cadastros** com compartilhamento de atletas e arenas (seção 6.9,
+   migration aditiva).
 3. **Inscrições e sorteio** — inscrições; configuração/geração/revisão do
    sorteio da prova a partir das inscrições (quebra de
    `DrawConfiguration`/`TransferList`); transação de versão; regra de refazer;
