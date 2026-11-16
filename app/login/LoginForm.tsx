@@ -36,7 +36,7 @@ export function LoginForm({ next = '/', expired = false }: { next?: string; expi
     <section className="w-full max-w-md rounded-ui border border-line bg-surface p-7 sm:p-9">
       {/* No desktop a logo grande fica na coluna da foto; no celular ela abre o cartão. */}
       <Image src="/brand/arena-pro-logo.svg" alt="Arena Pro" width={1298} height={614} unoptimized className="mx-auto mb-2 h-auto w-[220px] lg:hidden" />
-      <p className="hidden font-display text-sm font-bold uppercase tracking-widest text-accent lg:block">Arena Pro</p>
+      <p className="hidden font-display text-sm font-bold uppercase tracking-widest text-accent-ink lg:block">Arena Pro</p>
 
       {mode === 'login' ? (
         <>

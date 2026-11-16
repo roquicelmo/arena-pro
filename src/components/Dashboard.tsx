@@ -48,7 +48,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       <section className="rounded-ui border border-line bg-surface">
         <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
           <h2 className="font-display text-xl font-bold uppercase tracking-wide text-ink-strong">Provas recentes</h2>
-          <Link href="/provas" className="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:text-accent-hover">
+          <Link href="/provas" className="inline-flex items-center gap-1 text-sm font-semibold text-accent-ink hover:text-accent-hover">
             Ver todas <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
         </div>
