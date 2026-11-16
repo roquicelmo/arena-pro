@@ -54,6 +54,13 @@ describe('registerAthlete', () => {
     expect(prisma.eventRegistration.create).toHaveBeenCalled();
   });
 
+  it('corrida entre duas primeiras inscrições (P2002) vira 409', async () => {
+    prisma.athlete.findFirst.mockResolvedValue({ id: 'a1' });
+    prisma.eventRegistration.findUnique.mockResolvedValue(null);
+    prisma.eventRegistration.create.mockRejectedValue(new Prisma.PrismaClientKnownRequestError('dup', { code: 'P2002', clientVersion: 'x' }));
+    await expect(registerAthlete(user, 'e1', { athleteId: 'a1', category: 'PEZEIRO' })).rejects.toMatchObject({ status: 409 });
+  });
+
   it('inscrição ativa repetida = 409', async () => {
     prisma.athlete.findFirst.mockResolvedValue({ id: 'a1' });
     prisma.eventRegistration.findUnique.mockResolvedValue({ id: 'r1', status: 'ACTIVE' });

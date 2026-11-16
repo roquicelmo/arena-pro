@@ -38,7 +38,7 @@ test('PDF do avulso recusa atleta de outro usuário (404) e pede sessão (401)',
   const bId = athletes.find((a) => a.name === 'CABECEIRO B1')!.id;
   await loginAs(page, 'userA');
   const response = await page.request.post('/sorteio-avulso/sumula.pdf', {
-    data: { title: 'Teste', runs: [{ numero: 1, bateria: 1, cabeceiroId: bId, pezeiroId: bId, cabeceiroGrupo: 'A', pezeiroGrupo: 'A' }] },
+    data: { title: 'Teste', runs: [{ numero: 1, bateria: 1, cabeceiroId: bId, pezeiroId: 'id-de-outro-atleta', cabeceiroGrupo: 'A', pezeiroGrupo: 'A' }] },
   });
   expect(response.status()).toBe(404);
   expect(await response.json()).toEqual({ message: 'Atleta não encontrado ou inativo.' });

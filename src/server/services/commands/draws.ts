@@ -118,6 +118,7 @@ export async function buildQuickSumula(
   user: ScopeUser,
   runs: Array<{ numero: number; bateria: number; cabeceiroId: string; pezeiroId: string; cabeceiroGrupo: string; pezeiroGrupo: string }>,
 ): Promise<SumulaRun[]> {
+  if (runs.some((r) => r.cabeceiroId === r.pezeiroId)) throw new DomainError('Um atleta não pode fazer dupla consigo mesmo.', { status: 400 });
   const ids = [...new Set(runs.flatMap((r) => [r.cabeceiroId, r.pezeiroId]))];
   const athletes = await prisma.athlete.findMany({ where: { id: { in: ids }, active: true, ...accessScope(user) }, select: athleteSelect });
   const byId = new Map(athletes.map((a) => [a.id, a]));

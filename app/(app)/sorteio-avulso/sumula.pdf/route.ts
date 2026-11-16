@@ -3,6 +3,7 @@ import { buildFilename } from '../../../../src/lib/sumula';
 import { renderSumulaResponse } from '../../../../src/server/pdf/renderSumula';
 import { buildQuickSumula } from '../../../../src/server/services/commands/draws';
 import { DomainError } from '../../../../src/server/services/errors';
+import { OPERATOR_ROLES } from '../../../../src/server/permissions';
 import { getCurrentUser } from '../../../../src/server/session';
 
 export const runtime = 'nodejs';
@@ -13,6 +14,7 @@ const json = (status: number, message: string) => Response.json({ message }, { s
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return json(401, 'É necessário estar autenticado.');
+  if (!(OPERATOR_ROLES as readonly string[]).includes(user.role)) return json(403, 'Seu perfil não pode gerar sorteios.');
   const parsed = quickSumulaSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return json(400, parsed.error.issues[0]?.message ?? 'Dados do sorteio inválidos.');
   const { title, date, place, runs } = parsed.data;

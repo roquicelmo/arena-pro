@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../prisma';
 import { DomainError, notFound } from '../errors';
 import { accessScope, eventScope } from '../scope';
@@ -34,7 +35,8 @@ export async function registerAthlete(user: ScopeUser, eventId: string, input: {
   });
   if (existing?.status === 'ACTIVE') throw new DomainError('Este atleta já está inscrito nesta prova.', { status: 409, field: 'athleteId' });
 
-  return existing
+  try {
+    return await (existing
     ? prisma.eventRegistration.update({
         where: { id: existing.id },
         data: { category: input.category, status: 'ACTIVE', cancelledAt: null, registeredAt: new Date() },
@@ -43,7 +45,14 @@ export async function registerAthlete(user: ScopeUser, eventId: string, input: {
     : prisma.eventRegistration.create({
         data: { eventId, athleteId: athlete.id, category: input.category },
         include: { athlete: true },
-      });
+      }));
+  } catch (error) {
+    // Dois cliques simultâneos na primeira inscrição: a unicidade (eventId, athleteId) vira 409.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw new DomainError('Este atleta já está inscrito nesta prova.', { status: 409, field: 'athleteId' });
+    }
+    throw error;
+  }
 }
 
 export async function cancelRegistration(user: ScopeUser, eventId: string, registrationId: string): Promise<void> {
