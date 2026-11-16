@@ -46,7 +46,13 @@ test('texto sobre superfícies de destaque mantém contraste AA na pista da prov
   await page.getByRole('article').filter({ hasText: TEST_EVENTS.userA }).getByRole('link', { name: 'Detalhes' }).click();
   const tabs = page.getByRole('navigation', { name: 'Seções da prova' });
   await tabs.getByRole('link', { name: 'Sorteio', exact: true }).click();
-  await page.getByRole('button', { name: /gerar sorteio/i }).click();
+  await expect(page.getByRole('button', { name: /^(Gerar|Refazer) sorteio$/ })).toBeVisible();
+  const generate = page.getByRole('button', { name: 'Gerar sorteio' });
+  if (await generate.isVisible()) {
+    await generate.click();
+    await expect(page.getByRole('heading', { name: /Sorteio atual/ })).toBeVisible();
+  }
+  await tabs.getByRole('link', { name: 'Pista', exact: true }).click();
   await expect(page).toHaveURL(/\/pista$/);
   await expect(page.getByPlaceholder('0.00').first()).toBeVisible();
   const results = await contrastOf(page, '.bg-accent, .bg-amber-500, .bg-amber-600, [class*="bg-[#e87900]"]');

@@ -12,6 +12,19 @@ async function openEvent(page: Page, name: string) {
 const tab = (page: Page, name: string) =>
   page.getByRole('navigation', { name: 'Seções da prova' }).getByRole('link', { name, exact: true });
 
+/** Gera o sorteio se a prova ainda não tem um (refazer é bloqueado depois do 1º tempo) e abre a pista. */
+async function openTrackWithDraw(page: Page) {
+  await tab(page, 'Sorteio').click();
+  await expect(page.getByRole('button', { name: /^(Gerar|Refazer) sorteio$/ })).toBeVisible();
+  const generate = page.getByRole('button', { name: 'Gerar sorteio' });
+  if (await generate.isVisible()) {
+    await generate.click();
+    await expect(page.getByRole('heading', { name: /Sorteio atual/ })).toBeVisible();
+  }
+  await tab(page, 'Pista').click();
+  await expect(page).toHaveURL(/\/pista$/);
+}
+
 // A rota de tempos ainda recusa o papel USER (a regra "User lança tempos nas
 // próprias provas" é da fase 4 do spec), então o fluxo com tempo persistido roda
 // como admin sobre a prova do user A. O user A cobre o sorteio no teste de contraste.
@@ -20,9 +33,7 @@ test('fluxo da prova do user A: inscrições → sorteio → pista com tempo per
   await openEvent(page, TEST_EVENTS.userA);
   await tab(page, 'Inscrições').click();
   await expect(page.getByText('CABECEIRO A1')).toBeVisible();
-  await tab(page, 'Sorteio').click();
-  await page.getByRole('button', { name: /gerar sorteio/i }).click();
-  await expect(page).toHaveURL(/\/pista$/);
+  await openTrackWithDraw(page);
   const firstTime = page.getByPlaceholder('0.00').first();
   await firstTime.fill('8.12');
   await firstTime.press('Tab');
@@ -34,9 +45,7 @@ test('fluxo da prova do user A: inscrições → sorteio → pista com tempo per
 test('tempo editado na pista continua após trocar de aba e voltar', async ({ page }) => {
   await loginAs(page, 'admin');
   await openEvent(page, TEST_EVENTS.userA);
-  await tab(page, 'Sorteio').click();
-  await page.getByRole('button', { name: /gerar sorteio/i }).click();
-  await expect(page).toHaveURL(/\/pista$/);
+  await openTrackWithDraw(page);
   const firstTime = page.getByPlaceholder('0.00').first();
   await firstTime.fill('9.34');
   // Sai antes da gravação terminar (o PATCH sai na desmontagem).
@@ -52,9 +61,7 @@ test('tempo editado na pista continua após trocar de aba e voltar', async ({ pa
 test('falha ao limpar tempos volta a mostrar os tempos do banco', async ({ page }) => {
   await loginAs(page, 'admin');
   await openEvent(page, TEST_EVENTS.userA);
-  await tab(page, 'Sorteio').click();
-  await page.getByRole('button', { name: /gerar sorteio/i }).click();
-  await expect(page).toHaveURL(/\/pista$/);
+  await openTrackWithDraw(page);
   const firstTime = page.getByPlaceholder('0.00').first();
   await firstTime.fill('7.56');
   await firstTime.press('Tab');
@@ -64,6 +71,20 @@ test('falha ao limpar tempos volta a mostrar os tempos do banco', async ({ page 
   await page.getByRole('dialog').getByRole('button', { name: 'Limpar tempos' }).click();
   await expect(page.getByText('Alguns tempos não puderam ser apagados no banco.')).toBeVisible();
   await expect(page.getByPlaceholder('0.00').first()).toHaveValue(/7[.,]56/);
+});
+
+test('depois do primeiro tempo lançado, refazer o sorteio fica bloqueado', async ({ page }) => {
+  await loginAs(page, 'admin');
+  await openEvent(page, TEST_EVENTS.userA);
+  await openTrackWithDraw(page);
+  const firstTime = page.getByPlaceholder('0.00').first();
+  await firstTime.fill('9.01');
+  await firstTime.press('Tab');
+  await expect(page.getByText(/tempo salvo/i).first()).toBeVisible();
+  await tab(page, 'Sorteio').click();
+  await expect(page.getByRole('button', { name: 'Refazer sorteio' })).toBeDisabled();
+  await expect(page.getByText('Não é possível refazer: já há tempos lançados.')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Baixar súmula (PDF)' })).toBeVisible();
 });
 
 test('user B recebe 404 nas rotas da prova do user A', async ({ page }) => {
@@ -103,9 +124,7 @@ test('pista sem sorteio mostra estado vazio com link para o Sorteio', async ({ p
 test('sessão expirada na pista avisa que o tempo não foi salvo e vai ao login', async ({ page }) => {
   await loginAs(page, 'admin');
   await openEvent(page, TEST_EVENTS.userA);
-  await tab(page, 'Sorteio').click();
-  await page.getByRole('button', { name: /gerar sorteio/i }).click();
-  await expect(page).toHaveURL(/\/pista$/);
+  await openTrackWithDraw(page);
   await page.context().clearCookies();
   const firstTime = page.getByPlaceholder('0.00').first();
   await firstTime.fill('6.78');
@@ -118,9 +137,7 @@ test('sessão expirada na pista avisa que o tempo não foi salvo e vai ao login'
 test('voltar e avançar após edição rápida não perde o tempo salvo (refresh só no histórico)', async ({ page }) => {
   await loginAs(page, 'admin');
   await openEvent(page, TEST_EVENTS.userA);
-  await tab(page, 'Sorteio').click();
-  await page.getByRole('button', { name: /gerar sorteio/i }).click();
-  await expect(page).toHaveURL(/\/pista$/);
+  await openTrackWithDraw(page);
   const firstTime = page.getByPlaceholder('0.00').first();
   await firstTime.fill('5.43');
   await firstTime.press('Tab');
