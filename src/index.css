@@ -133,7 +133,7 @@
 
   .text-amber-700,
   .text-amber-800 {
-    color: var(--color-accent) !important;
+    color: var(--color-accent-ink) !important;
   }
 
   .bg-teal-800.text-white,
@@ -141,7 +141,7 @@
     color: #ffffff !important;
   }
 
-  /* O âmbar legado agora é terracota (escuro): o texto sobre ele precisa ser claro (AA). */
+  /* O âmbar legado agora é o dourado da logo (escurecido): o texto sobre ele precisa ser claro (AA). */
   .bg-amber-500,
   .bg-amber-600,
   .bg-amber-500.text-white,
@@ -166,7 +166,7 @@
   .text-amber-200,
   .text-amber-300,
   .text-amber-400 {
-    color: var(--color-accent) !important;
+    color: var(--color-accent-ink) !important;
   }
 
   .text-blue-200,
