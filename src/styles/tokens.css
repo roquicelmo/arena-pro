@@ -1,0 +1,33 @@
+/*
+ * Identidade visual "Arena" — tokens do Sorteios Lagoa.
+ * Areia, couro e terracota; números em fonte condensada como num placar.
+ * As fontes vêm de next/font (variáveis --font-barlow e --font-barlow-condensed).
+ */
+@theme {
+  --color-sand: #f7f3ec;
+  --color-surface: #fffdf9;
+  --color-nav: #efe7da;
+  --color-line: #e2d6c3;
+  --color-line-soft: #efe7da;
+  --color-ink-strong: #2a1f16;
+  --color-ink: #3a2f25;
+  /* #8a7a68 do mockup não atinge AA (3,8:1) sobre areia; tom ajustado = 5,1:1 */
+  --color-ink-muted: #6f604d;
+  --color-accent: #b5471b;
+  --color-accent-hover: #963914;
+  /* Texto sobre acento/perigo (não usar text-white: a camada legada o sobrescreve). */
+  --color-on-accent: #ffffff;
+  --color-accent-soft: #f6e2d6;
+  --color-highlight: #f3e3cf;
+  --color-success: #3f6b2a;
+  --color-success-soft: #e6eedc;
+  --color-warning: #8a5a00;
+  --color-warning-soft: #f6ead0;
+  --color-danger: #a12a1f;
+  --color-danger-soft: #f7dedb;
+
+  --font-sans: var(--font-barlow), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: var(--font-barlow-condensed), var(--font-barlow), system-ui, sans-serif;
+
+  --radius-ui: 4px;
+}
