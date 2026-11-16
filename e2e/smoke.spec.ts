@@ -17,8 +17,7 @@ test('sem scroll horizontal no login e no painel', async ({ page }) => {
   expect(await hasNoHorizontalScroll(page)).toBe(true);
 });
 
-// Task 4: reativar quando /provas existir (o menu legado foi removido nesta task).
-test.fixme('user A não vê a prova do user B', async ({ page }) => {
+test('user A não vê a prova do user B', async ({ page }) => {
   await loginAs(page, 'userA');
   await page.goto('/provas');
   await expect(page.getByText(TEST_EVENTS.userA).first()).toBeVisible();

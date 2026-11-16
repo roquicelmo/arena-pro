@@ -30,9 +30,7 @@ export const AthletesPage: React.FC<AthletesPageProps> = ({ athletes, owners = [
     <section className="space-y-5">
       <div className="flex flex-col gap-4 rounded-2xl border border-[#dfe6ed] bg-white px-6 py-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#218f83]">Base de atletas</p>
-          <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-[#172036]">Cadastro de atletas</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6b788b]">
+          <p className="max-w-2xl text-sm leading-6 text-[#6b788b]">
             Organize os laçadores que poderão participar das próximas provas.
           </p>
         </div>

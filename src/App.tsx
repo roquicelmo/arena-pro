@@ -602,13 +602,10 @@ export const App: React.FC<AppProps> = ({ initialSession, embedded = false }) =>
         {showDashboard ? (
           <Dashboard
             athleteCount={competitors.length}
-            selectedPezeiros={selectedPezeiros.length}
-            selectedCabeceiros={selectedCabeceiros.length}
-            runs={drawResults}
             events={events}
             owners={managedUsers}
             canFilterOwners={['ADMIN', 'MANAGER', 'ORGANIZER'].includes(authSession.user.role)}
-            onStartDraw={() => setShowDashboard(false)}
+            startDrawHref="/sorteio-avulso"
           />
         ) : activeSection === 'events' ? (
           resultsEvent ? (
@@ -638,7 +635,7 @@ export const App: React.FC<AppProps> = ({ initialSession, embedded = false }) =>
               onOpenResults={() => void handleOpenResults(selectedEvent)}
             />
           ) : (
-            <EventsPage events={events} arenas={arenas} owners={managedUsers} defaultOwnerId={authSession.user.id} canFilterOwners={['ADMIN', 'MANAGER', 'ORGANIZER'].includes(authSession.user.role)} onOpenEvent={setSelectedEvent} onCreate={handleCreateEvent} onUpdate={handleUpdateEvent} onDelete={handleDeleteEvent} />
+            <EventsPage events={events} arenas={arenas} owners={managedUsers} defaultOwnerId={authSession.user.id} canFilterOwners={['ADMIN', 'MANAGER', 'ORGANIZER'].includes(authSession.user.role)} onCreate={handleCreateEvent} onUpdate={handleUpdateEvent} onDelete={handleDeleteEvent} />
           )
         ) : activeSection === 'athletes' ? (
           <AthletesPage
