@@ -161,6 +161,7 @@ app/
                               # pista, locucao, resultado
     atletas/                  # /atletas
     agenda/                   # /agenda
+    cadastros/                # /cadastros (gerentes): compartilhar e reatribuir
     relatorios/               # /relatorios
     usuarios/                 # /usuarios (papéis de gestão)
     sorteio-avulso/           # /sorteio-avulso (QuickDrawClient)
@@ -182,14 +183,16 @@ src/
   components/
     shell/                    # AppShell, SidebarNav, MobileDrawer, navItems
     ui/                       # primitivos (Button, Badge, Field, Toaster...)
-    AgendaPage.tsx
+    athletes/                 # AthletesView, AthleteFormDialog, AthleteNotesDialog
+    events/                   # EventsView, EventFormDialog, AgendaList
+    arenas/                   # ArenasPanel, ArenaFormDialog
+    records/                  # RecordsManager, ShareDialog, ReassignDialog
+    locations/                # CityPicker (UF + cidade do IBGE)
+    filters/                  # OwnerFilter
     AnnouncerPage.tsx
-    AthletesPage.tsx
     Dashboard.tsx
     DrawConfiguration.tsx
     EventDetailsPage.tsx
-    EventsPage.tsx
-    NewCompetitorModal.tsx
     RegistrationPage.tsx
     ReportsPage.tsx
     ResultsPage.tsx
@@ -203,6 +206,10 @@ src/
     referenceEvents.ts
 
   lib/
+    actionResult.ts           # ActionResult e formBannerMessage
+    useAction.ts              # hook das Server Actions
+    schemas/                  # Zod: cadastros.ts, shares.ts
+    agenda.ts
     apiClient.ts              # apiRequest para os bridges client
     drawDefaults.ts
     mappers.ts
@@ -213,9 +220,13 @@ src/
     next-data-gateway.ts
     permissions.ts
     prisma.ts
-    session.ts                # requireUser()
+    session.ts                # requireUser() e requireActionUser()
+    actions/                  # Server Actions (runAction + athletes, arenas, events, shares)
     routes/
     services/                 # leitura de dados para os Server Components
+      commands/               # escrita compartilhada por actions e /api
+      localities.ts
+      records.ts
 
   types/
     events.ts
@@ -265,7 +276,9 @@ individuais e rewrites da Vercel. A arquitetura foi migrada para Next.js.
 
 ### Atual
 
-- [app/page.tsx](../app/page.tsx) é a entrada visual;
+- [app/(app)/layout.tsx](../app/(app)/layout.tsx) é o layout autenticado
+  (sessão + `AppShell`) e as rotas ficam em `app/(app)/*` (ver 6.1);
+  `/login` é a única página pública;
 - [app/layout.tsx](../app/layout.tsx) define layout e metadata;
 - [pages/api/[...path].ts](../pages/api/[...path].ts) é o gateway de dados;
 - [pages/api/auth/[...path].ts](../pages/api/auth/[...path].ts) expõe o Auth.js;
@@ -293,6 +306,7 @@ O `src/App.tsx` foi removido: cada seção é uma rota App Router.
 | `/provas/[eventId]/resultado` | Resultados e publicação |
 | `/atletas` | Cadastro de atletas |
 | `/agenda` | Minha agenda |
+| `/cadastros` | Compartilhar atletas e arenas e trocar o responsável das provas (gerentes) |
 | `/relatorios` | Relatórios |
 | `/usuarios` | Usuários (perfis de gestão) |
 | `/sorteio-avulso` | Sorteio rápido, só em memória |
@@ -315,10 +329,60 @@ cada `page.tsx` também chama `requireUser()`
   que aplicam o escopo por papel e proprietário.
 - Os componentes de tela continuam Client Components e recebem os dados por
   props, por meio de "bridges" (`*Client.tsx`) em cada rota.
-- Mutações chamam `/api/*` com `apiRequest`
+- Cadastros (atletas, arenas, provas e compartilhamento) mudam por Server
+  Actions (6.4). As demais telas ainda chamam `/api/*` com `apiRequest`
   ([`src/lib/apiClient.ts`](../src/lib/apiClient.ts)) e, em seguida,
   `router.refresh()` para recarregar os dados do servidor.
 - O sorteio avulso não persiste nada: usa `executeGroupCrossDraw` no cliente.
+
+### 6.4 Server Actions
+
+Arquivos em `src/server/actions/{athletes,arenas,events,shares}.ts`, todos
+`'use server'`. Cada action chama `runAction`
+([`src/server/actions/runAction.ts`](../src/server/actions/runAction.ts)), que:
+
+1. autentica com `requireActionUser(roles?)`, sem redirecionar;
+2. valida a entrada com o schema Zod de `src/lib/schemas/{cadastros,shares}.ts`
+   (mensagens em pt-BR, `fieldErrors` por campo);
+3. executa o handler, que chama um command de
+   `src/server/services/commands/*`;
+4. revalida os caminhos (uma falha de revalidação só vai para o log);
+5. devolve `ActionResult<T>`
+   ([`src/lib/actionResult.ts`](../src/lib/actionResult.ts)):
+   `{ ok: true, data } | { ok: false, message, fieldErrors?, code? }`.
+
+Server Actions nunca lançam para o cliente. `DomainError` vira a própria
+mensagem (com `field`, vira erro do campo); erro inesperado vira "Não foi
+possível concluir a ação" mais `console.error` no servidor; sessão expirada
+devolve `code: 'UNAUTHENTICATED'`.
+
+**Commands.** `owner.ts` (`resolveOwnerId`, `resolveCity`, `FORBIDDEN_MESSAGE`),
+`athletes.ts`, `arenas.ts`, `events.ts` e `shares.ts` concentram as regras de
+escrita. As actions e os handlers `/api` de POST/PATCH/DELETE de atletas,
+arenas e provas chamam os mesmos commands, então o comportamento é o mesmo;
+o JSON e os status de sucesso da API não mudaram.
+
+**Hook `useAction`** ([`src/lib/useAction.ts`](../src/lib/useAction.ts)):
+expõe `pending`, `message`, `fieldErrors`, `execute` e `reset`. Ignora uma
+segunda chamada enquanto a primeira está pendente (duplo clique grava uma vez),
+trata falha de rede com "Sem conexão com o servidor" e, em
+`UNAUTHENTICATED`, mostra o toast e vai para
+`/login?next=<página atual>&reason=expired` (`redirectToLogin`).
+
+**Regra de feedback.**
+
+- Ação de formulário: o erro aparece só dentro do formulário (resumo com
+  `role="alert"` e erro por campo; `formBannerMessage` omite o resumo quando o
+  mesmo texto já está no campo). O diálogo continua aberto com tudo o que foi
+  digitado. Sucesso fecha o diálogo e mostra `toast.success`.
+- Ação sem formulário (remover, cancelar, desativar): erro em `toast.error`
+  (`toastErrors: true`), sucesso em `toast.success`.
+- Formulários usam `noValidate`: vale a validação do Zod no servidor.
+
+**`Dialog`** ([`src/components/ui/Dialog.tsx`](../src/components/ui/Dialog.tsx)):
+`<dialog>` nativo com `showModal`, foco no primeiro campo, retorno do foco ao
+fechar e `busy`, que impede Esc, fundo e "Fechar" durante o salvamento.
+Há um exemplo na vitrine `/dev/ui`.
 
 ## 7. Arquitetura da API
 
@@ -706,13 +770,21 @@ O isolamento ocorre no backend, não somente na interface.
 
 ```text
 Athlete.ownerId
+AthleteShare (athleteId, userId)
 ```
 
 ### Arenas
 
 ```text
 Arena.ownerId
+ArenaShare (arenaId, userId)
 ```
+
+Atletas e arenas podem ser compartilhados (seção 12.1). Ao criar uma arena, o
+command reaproveita uma arena ativa do mesmo dono com o mesmo nome (sem
+diferenciar maiúsculas) e a mesma cidade, em vez de duplicar. Quando um
+gerente informa `ownerId` (API), o servidor valida que é um usuário existente
+e ativo; um `ownerId` enviado por User é ignorado.
 
 ### Provas
 
@@ -724,11 +796,11 @@ Event.createdById
 
 - Admin vê tudo;
 - Manager vê tudo;
-- User vê registros próprios;
+- User vê registros próprios e, em atletas e arenas, os compartilhados com ele;
 - Admin e Manager podem filtrar por proprietário;
 - o proprietário padrão é o usuário autenticado;
-- Admin e Manager podem criar cadastros em nome de outro usuário quando o
-  formulário permite;
+- os formulários de cadastro não têm seletor de proprietário: o registro
+  nasce do usuário que o criou; trocar o responsável é feito em `/cadastros`;
 - rotas filhas também validam o escopo.
 
 As validações se aplicam a:
@@ -738,6 +810,67 @@ As validações se aplicam a:
 - corridas;
 - tempos;
 - resultados.
+
+### 12.1 Compartilhamento de cadastros
+
+Atletas e arenas podem ser compartilhados com outros usuários pelas tabelas
+`AthleteShare` e `ArenaShare` (chave composta, `onDelete: Cascade`), criadas
+pela migration `20261116120000_add_record_shares`.
+
+- **Escopo:** `accessScope(user, ownerId?)` em
+  [`src/server/services/scope.ts`](../src/server/services/scope.ts) devolve
+  `OR: [dono, compartilhado com o usuário]`. User usa sempre o próprio id;
+  gerente sem filtro vê tudo e, com filtro X, vê os de X e os compartilhados
+  com X. Provas continuam com `eventScope` (dono único).
+- **Quem pode o quê:** quem recebeu o compartilhamento só **vê e usa** o
+  cadastro (por exemplo, inscrever o atleta) e escreve as próprias notas
+  privadas. **Editar e desativar** exigem ser o dono ou gerente
+  (`canAccessOwnerData`); caso contrário, 403 com "Só o proprietário ou um
+  gerente pode alterar este cadastro.". Registro inexistente, inativo ou fora
+  do escopo responde "não encontrado".
+- **Quem compartilha:** só `MANAGER_ROLES` (`shareRecordsAction`,
+  `unshareRecordsAction`, em lote) e só eles trocam o responsável de provas
+  (`reassignEventsAction`). Provas não são compartilhadas: têm um único dono.
+- **Tela `/cadastros`** (item "Cadastros" do menu, só gerentes;
+  `src/components/records/*`): abas Atletas, Arenas e Provas, filtro por dono
+  (`OwnerFilter`), seleção em lote, `ShareDialog` (compartilhar e remover) e
+  `ReassignDialog` (trocar o responsável das provas). Os dados vêm de
+  `listManagedRecords` e `listShareTargets`
+  ([`src/server/services/records.ts`](../src/server/services/records.ts)).
+- **Visibilidade de provas:** `EVENT_VIEW_ROLES` em `permissions.ts` lista os
+  papéis que podem ver provas.
+
+### 12.2 Cadastro do atleta
+
+Campos: nome, apelido, clube (`Athlete.club`), telefone, e-mail, cidade/UF,
+handicaps e a nota privada. A migration
+`20261116130000_add_localities_club_notes` acrescenta `club`, `document`,
+`cityCode`, `AthleteNote` e as tabelas de localidades.
+
+- **`document`** é reservado: a coluna existe, sem campo na tela e sem uso
+  (não há CPF).
+- **Notas privadas:** `AthleteNote` (atleta × usuário). Cada usuário lê e grava
+  só a própria nota, em qualquer atleta do seu `accessScope`
+  (`saveAthleteNoteAction`).
+- **Aviso de duplicados:** ao cadastrar um atleta novo (não ao editar), `checkAthleteDuplicatesAction` procura
+  atletas ativos com o mesmo nome (sem acento nem caixa), clube e cidade
+  **somente dentro do escopo do usuário**. É só um aviso; o usuário pode
+  confirmar e salvar mesmo assim.
+- **Localidades:** `BrState` (UF, código IBGE) e `Municipality` (código IBGE,
+  nome, UF) são tabelas locais carregadas pela migration. O sistema nunca
+  chama a API do IBGE em runtime nem no build; só o script
+  [`scripts/generate-ibge-localities.mjs`](../scripts/generate-ibge-localities.mjs)
+  a consulta, uma vez, à mão, para gerar os `INSERT` da migration.
+  Atleta e arena gravam `cityCode` e também `city`/`state` em texto, copiados
+  do município (`resolveCity`).
+- **Backfill:** a migration preenche `cityCode` dos registros antigos quando
+  `city`/`state` (sem acento nem caixa) apontam para um único município. Os
+  demais ficam sem `cityCode` e aparecem como **"Cidade a revisar"** nas
+  telas de atletas e arenas, com o campo de cidade vazio para o usuário
+  escolher.
+- **Padrão:** o formulário começa em UF **GO** e cidade **Caiapônia**
+  (`DEFAULT_UF` e `DEFAULT_CITY_NAME` em `localities.ts`; o código do município
+  é lido da tabela, nunca fixado), ambos alteráveis no `CityPicker`.
 
 ## 13. Solicitação e habilitação de acesso
 
@@ -945,6 +1078,7 @@ id
 name
 city
 state
+cityCode
 address
 active
 ownerId
@@ -955,13 +1089,16 @@ updatedAt
 Relacionamentos:
 
 - eventos;
-- proprietário.
+- proprietário;
+- município (`cityCode`, opcional);
+- compartilhamentos (`ArenaShare`).
 
 Índices:
 
 ```text
 (city, state)
 (ownerId)
+(cityCode)
 ```
 
 ### 14.8 `Event`
@@ -1002,10 +1139,13 @@ id
 registrationNo
 name
 nickname
+club
+document        (reservado, sem uso)
 phone
 email
 city
 state
+cityCode
 headHandicap
 heelHandicap
 active
@@ -1026,7 +1166,9 @@ Relacionamentos:
 - inscrições;
 - corridas como cabeceiro;
 - corridas como pezeiro;
-- proprietário.
+- proprietário;
+- município (`cityCode`, opcional);
+- compartilhamentos (`AthleteShare`) e notas privadas (`AthleteNote`).
 
 Índices:
 
@@ -1163,7 +1305,39 @@ Restrição:
 unique(runId, bullNumber)
 ```
 
-### 14.14 `AuditLog`
+### 14.14 `AthleteShare` e `ArenaShare`
+
+```text
+athleteId | arenaId
+userId
+createdAt
+```
+
+Chave primária composta (registro, usuário), índice em `userId` e remoção em
+cascata.
+
+### 14.15 `AthleteNote`
+
+```text
+athleteId
+userId
+body
+createdAt
+updatedAt
+```
+
+Chave primária `(athleteId, userId)`: uma nota privada por usuário e atleta.
+
+### 14.16 `BrState` e `Municipality`
+
+```text
+BrState:      code (IBGE), uf (único), name
+Municipality: code (IBGE), name, uf -> BrState.uf
+```
+
+Índice `(uf, name)` em `Municipality`. Carregadas pela migration; ver 12.2.
+
+### 14.17 `AuditLog`
 
 ```text
 id
@@ -1196,7 +1370,13 @@ Migrations existentes:
 prisma/migrations/20261111030000_init/
 prisma/migrations/20261113030000_add_access_requests/
 prisma/migrations/20261113052510_add_user_roles_and_ownership/
+prisma/migrations/20261116120000_add_record_shares/
+prisma/migrations/20261116130000_add_localities_club_notes/
 ```
+
+### Ordem de deploy em produção
+
+Antes de promover o deploy na Vercel, rode `npm run db:deploy` contra o banco de produção. O código novo consulta `cityCode` e os compartilhamentos; se ele entrar no ar antes das migrations, toda consulta de atletas e arenas falha e `getDefaultCity()` lança, deixando `/atletas`, `/provas` e `/sorteio-avulso` com erro 500. Essa ordem é segura porque as migrations são aditivas: o código anterior continua funcionando com o banco já migrado. O build (`prisma generate && next build`) não aplica migrations e não há CI que as aplique.
 
 ### Migration inicial
 
@@ -1236,6 +1416,17 @@ Adiciona:
 - proprietário de arena;
 - criador da prova;
 - índices de ownership.
+
+### Migration de compartilhamento
+
+`20261116120000_add_record_shares`: cria `AthleteShare` e `ArenaShare`
+(aditiva).
+
+### Migration de localidades, clube e notas
+
+`20261116130000_add_localities_club_notes`: cria `BrState`, `Municipality` (com
+os dados do IBGE), `AthleteNote`; adiciona `club`, `document` e `cityCode` em
+`Athlete` e `cityCode` em `Arena`; faz o backfill do `cityCode`. Aditiva.
 
 ## 16. Prisma Client
 
@@ -1510,19 +1701,13 @@ Exibe:
 - filtros;
 - atalhos.
 
-### `EventsPage`
+### Provas e arenas (`src/components/events`, `src/components/arenas`)
 
-[`src/components/EventsPage.tsx`](../src/components/EventsPage.tsx)
-
-Responsável por:
-
-- listar provas;
-- criar prova;
-- editar prova;
-- cancelar prova;
-- criar arena;
-- selecionar proprietário;
-- abrir detalhes.
+- `EventsView` lista as provas; `EventFormDialog` cria e edita (data enviada
+  como `AAAA-MM-DD`, gravada ao meio-dia UTC); cancelar usa confirmação;
+- `ArenasPanel` e `ArenaFormDialog` listam e cadastram arenas (cidade pelo
+  `CityPicker`; "Cidade a revisar" para registros sem `cityCode`);
+- `AgendaList` e `src/lib/agenda.ts` montam `/agenda`.
 
 ### `EventDetailsPage`
 
@@ -1536,18 +1721,18 @@ Centraliza acesso a:
 - locução;
 - resultado.
 
-### `AthletesPage`
+### Atletas (`src/components/athletes`)
 
-[`src/components/AthletesPage.tsx`](../src/components/AthletesPage.tsx)
+- `AthletesView`: lista, busca, filtro por dono, criação, edição e
+  desativação;
+- `AthleteFormDialog`: formulário com `CityPicker`, clube e aviso de
+  duplicados;
+- `AthleteNotesDialog`: nota privada do usuário;
+- registros compartilhados mostram só "usar" e notas para quem não é dono.
 
-Responsável por:
+### Cadastros (`src/components/records`)
 
-- lista;
-- busca;
-- filtros;
-- criação;
-- edição;
-- desativação.
+`RecordsManager`, `ShareDialog` e `ReassignDialog` (seção 12.1).
 
 ### `RegistrationPage`
 

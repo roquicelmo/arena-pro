@@ -49,7 +49,8 @@ operação nas provas, o objetivo é elevar três coisas:
 - Mudar o algoritmo de sorteio (`src/utils/drawAlgorithm.ts`) — ele é movido/
   reaproveitado, não reescrito.
 - Mudanças destrutivas no schema Prisma. Migrations só aditivas, e apenas se
-  indispensáveis (avisar antes).
+  indispensáveis (avisar antes). As aprovadas até aqui são as do
+  compartilhamento de cadastros (seção 6.9) e do cadastro do atleta (seção 6.10).
 - Trocar a stack (Auth.js, Prisma, Tailwind permanecem).
 - Tema escuro.
 - Adotar shadcn/Radix em bloco (componentes próprios continuam; Radix pode ser
@@ -159,6 +160,7 @@ app/
     atletas/page.tsx
     agenda/page.tsx
     usuarios/page.tsx        só Admin/Manager
+    cadastros/page.tsx       manejo de cadastros, só Admin/Manager (seção 6.9)
     relatorios/page.tsx
 ```
 
@@ -235,6 +237,8 @@ src/server/
     depois do primeiro tempo lançado ou da publicação.
 - **Prova "local-"**: remover o fallback que cria prova só no estado do
   navegador quando a API falha; erro vira toast. *(Chamada minha.)*
+- **Compartilhamento de cadastros**: ver seção 6.9 (mudança do modelo de
+  ownership de atletas e arenas).
 
 ### 6.5 Componentes
 
@@ -298,6 +302,83 @@ corridas em PDF**.
   sorteadas** (validadas por Zod; IDs de atletas conferidos como pertencentes
   ao escopo do usuário e nomes/handicaps relidos do banco). Não re-sorteia,
   para que o PDF seja exatamente o que foi revisado na tela.
+
+### 6.9 Manejo de cadastros (compartilhamento)
+
+Pedido do usuário durante a fase 2: o seletor de proprietário dentro de cada
+modal de cadastro é pouco intuitivo. Em vez dele, Admin e Manager ganham uma
+ferramenta para **atribuir cadastros a vários usuários**. Isso **não é
+transferência**: o cadastro passa a aparecer para mais de um usuário.
+
+Decisões do usuário (2026-11-16):
+
+- **Tipos compartilháveis:** atletas e arenas. **Provas continuam com um único
+  dono** (`createdById`), então o escopo de inscrições, sorteio, pista e
+  publicação (fases 3 e 4) não muda.
+- **Quem compartilha:** só `MANAGER_ROLES` (Admin, Manager e o legado
+  Organizer). User não compartilha.
+- **Compartilhar, não copiar:** cada atleta ou arena é **um registro só**,
+  ligado a vários usuários. Motivo: no futuro haverá um cadastro unificado do
+  atleta, com notas, tempos e provas.
+- **O que o usuário compartilhado pode fazer:** **ver e usar** (inscrições,
+  sorteio avulso). **Editar e desativar** ficam só com o dono e os gerentes.
+  *(Decisão do usuário, revisada em 2026-11-16; substitui "ver, usar e editar".)*
+- **Notas privadas:** cada usuário escreve notas e observações próprias sobre um
+  atleta que vê (dele ou compartilhado), numa tabela por atleta × usuário,
+  visíveis só para quem as escreveu.
+- Tempos e resultados já pertencem à prova e não mudam.
+- **Modelo de dados:** migration **aditiva** com tabelas de vínculo N:N
+  `AthleteShare(athleteId, userId)` e `ArenaShare(arenaId, userId)`, chave
+  composta, `onDelete: Cascade` dos dois lados (usuário ou cadastro excluído
+  remove o vínculo; o cadastro em si segue a regra atual de dono).
+- **Escopo:** para atletas e arenas, o escopo de User passa a ser "dono **ou**
+  compartilhado comigo". O filtro de gerente por usuário mostra os cadastros a
+  que aquele usuário tem acesso (próprios ou compartilhados).
+- **Tela `/cadastros`** ("Manejo de cadastros", só `MANAGER_ROLES`, 404 para
+  os demais): abas Atletas, Arenas e Provas; filtro por usuário e busca;
+  seleção múltipla com ações em lote "Compartilhar com…" e "Remover
+  compartilhamento…"; cada linha mostra o dono e com quem está compartilhado.
+  Na aba Provas, que não são compartilháveis, a ação é "Alterar responsável"
+  (troca do dono único). *(Chamada minha: sem isso, gerentes perderiam o
+  único jeito de criar uma prova para outro usuário ao sair o seletor dos
+  modais.)*
+- Os modais de cadastro (atleta, arena, prova) **perdem o seletor de
+  proprietário**: o cadastro nasce do usuário que o criou.
+- Os endpoints `/api` mantêm o campo `ownerId` aceito hoje, por
+  compatibilidade, até serem removidos na fase 5.
+- **Impacto nas fases seguintes:** a fase 3 deve validar, na inscrição, que o
+  atleta está no escopo "dono ou compartilhado" do dono da prova (hoje a rota
+  de inscrição aceita qualquer atleta ativo); o sorteio avulso usa o mesmo
+  escopo. A fase 4 não muda, porque provas não são compartilhadas.
+
+### 6.10 Cadastro do atleta: clube, localidades oficiais e duplicados
+
+Decisões do usuário (2026-11-16):
+
+- **Sem CPF por enquanto.** "Inicialmente, vamos pedir apenas Cidade, Clube,
+  etc." O modelo reserva uma coluna opcional `document`, sem campo na tela.
+- **Clube:** campo opcional novo no atleta.
+- **Cidade e estado padronizados por fonte oficial:** tabelas locais de UFs e
+  municípios com o **código IBGE**, geradas uma vez a partir da API de
+  localidades do IBGE (`servicodados.ibge.gov.br/api/v1/localidades`) e
+  carregadas por migration. O sistema **nunca chama o IBGE durante o uso**.
+  - Atleta e arena guardam o código IBGE do município (`cityCode`). As colunas
+    de texto `city`/`state` continuam preenchidas a partir do município, por
+    compatibilidade com a API e as telas antigas. *(Chamada minha.)*
+  - Na tela: select de UF que começa em **GO** e busca de cidade com
+    autocomplete que começa em **Caiapônia**; os dois podem ser alterados. O
+    código de Caiapônia vem dos dados baixados, nunca fixado de memória.
+  - Registros existentes com cidade em texto livre: a migration tenta casar com
+    a tabela (nome normalizado sem acento e sem caixa + UF). Os que não casarem
+    ficam sem código e aparecem como "Cidade a revisar" para o dono corrigir.
+- **Duplicados:** ao cadastrar, se nome normalizado (sem acento, sem diferença
+  de maiúsculas), cidade e clube coincidirem com um atleta existente, o sistema
+  avisa "Possível atleta já cadastrado" com as opções **Usar o existente** e
+  **Cadastrar mesmo assim**. É só aviso; não bloqueia. A busca considera só o
+  que o usuário já vê (os dele e os compartilhados com ele); gerentes procuram
+  em todos. Nada de outro usuário vaza para um User.
+- Migration **aditiva**: tabelas de UFs, municípios e notas; colunas novas e
+  opcionais `club`, `document` e `cityCode` em atleta e `cityCode` em arena.
 
 ## 7. PDF da súmula de sorteio (decidido)
 
@@ -367,7 +448,10 @@ Cada fase termina implantável e validada (seção 8).
    identidade e proteção no servidor; cada seção ganha sua rota, inicialmente
    podendo reutilizar o componente antigo; `App.tsx` deixa de ser a entrada.
 2. **Cadastros** — atletas, arenas, provas, agenda: Server Components +
-   Server Actions + services; skeletons, empty states, diálogos, toasts.
+   Server Actions + services; skeletons, empty states, diálogos, toasts;
+   **manejo de cadastros** com compartilhamento de atletas e arenas (seção 6.9,
+   migration aditiva); clube, notas privadas, localidades IBGE e aviso de
+   duplicados no cadastro do atleta (seção 6.10).
 3. **Inscrições e sorteio** — inscrições; configuração/geração/revisão do
    sorteio da prova a partir das inscrições (quebra de
    `DrawConfiguration`/`TransferList`); transação de versão; regra de refazer;

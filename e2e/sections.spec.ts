@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { TEST_EVENTS } from './fixtures/users';
 import { loginAs, openNav } from './helpers/auth';
 import { hasNoHorizontalScroll, trackConsoleErrors } from './helpers/console';
 
@@ -32,7 +33,7 @@ test('/usuarios responde 404 para user e abre para manager', async ({ page }) =>
 test('cancelar prova pede confirmação e Esc não cancela', async ({ page }) => {
   await loginAs(page, 'userB');
   await page.goto('/provas');
-  await page.getByRole('button', { name: /cancelar/i }).first().click();
+  await page.getByRole('button', { name: `Cancelar ${TEST_EVENTS.userB}` }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByText('PROVA E2E USER B')).toBeVisible();

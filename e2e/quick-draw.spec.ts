@@ -17,3 +17,15 @@ test('sorteio avulso gera corridas com os atletas escolhidos', async ({ page }) 
   expect(await hasNoHorizontalScroll(page)).toBe(true);
   expect(errors()).toEqual([]);
 });
+
+test('cadastro rápido cria o atleta e o mostra na lista sem recarregar', async ({ page }, testInfo) => {
+  const name = `ATLETA AVULSO ${testInfo.project.name}`;
+  await loginAs(page, 'userA');
+  await page.goto('/sorteio-avulso');
+  await page.getByRole('button', { name: /novo inscrito/i }).click();
+  const dialog = page.getByRole('dialog', { name: 'Novo atleta' });
+  await dialog.getByLabel('Nome').fill(name);
+  await dialog.getByRole('button', { name: 'Salvar atleta' }).click();
+  await expect(page.getByText('Atleta cadastrado.')).toBeVisible();
+  await expect(page.getByText(name)).toBeVisible();
+});

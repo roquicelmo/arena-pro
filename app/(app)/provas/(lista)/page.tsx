@@ -1,26 +1,38 @@
-import { PageHeader } from '../../../../src/components/ui';
-import { MANAGER_ROLES } from '../../../../src/server/permissions';
+import { EventsView } from '../../../../src/components/events/EventsView';
+import { isAdmin, isManager } from '../../../../src/server/permissions';
 import { listArenas } from '../../../../src/server/services/arenas';
 import { listEvents } from '../../../../src/server/services/events';
+import { getDefaultCity, listStates } from '../../../../src/server/services/localities';
 import { listOwners } from '../../../../src/server/services/users';
 import { requireUser } from '../../../../src/server/session';
-import { EventsClient } from './EventsClient';
 
-export default async function ProvasPage() {
+type Param = string | string[] | undefined;
+
+export default async function ProvasPage({ searchParams }: { searchParams: Promise<{ dono?: Param; canceladas?: Param }> }) {
   const user = await requireUser();
-  const [events, arenas, owners] = await Promise.all([listEvents(user), listArenas(user), listOwners(user)]);
+  const canFilterOwners = isAdmin(user.role) || isManager(user.role);
+  const { dono, canceladas } = await searchParams;
+  const ownerFilter = canFilterOwners && typeof dono === 'string' ? dono : '';
+  const [events, arenas, owners, states, defaultCity] = await Promise.all([
+    listEvents(user, { ownerId: ownerFilter || undefined }),
+    listArenas(user, { ownerId: ownerFilter || undefined }),
+    listOwners(user),
+    listStates(),
+    getDefaultCity(),
+  ]);
   return (
     <main className="mx-auto w-full max-w-[1720px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-      <PageHeader title="Provas e arenas" />
-      <div className="mt-6">
-        <EventsClient
-          events={events}
-          arenas={arenas}
-          owners={owners}
-          canFilterOwners={(MANAGER_ROLES as readonly string[]).includes(user.role)}
-          defaultOwnerId={user.id}
-        />
-      </div>
+      <EventsView
+        events={events}
+        arenas={arenas}
+        owners={owners}
+        canFilterOwners={canFilterOwners}
+        ownerFilter={ownerFilter}
+        showCancelled={canceladas === '1'}
+        currentUserId={user.id}
+        states={states}
+        defaultCity={defaultCity}
+      />
     </main>
   );
 }

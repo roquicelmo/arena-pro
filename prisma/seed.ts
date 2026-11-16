@@ -18,6 +18,16 @@ const parseCity = (value?: string) => {
   return { city: city.trim() || 'Não informada', state: state.trim().slice(0, 2).toUpperCase() };
 };
 
+const cityCodeCache = new Map<string, number | null>();
+async function resolveCityCode(city: string, state: string) {
+  const key = `${city}|${state}`;
+  if (!cityCodeCache.has(key)) {
+    const municipality = await prisma.municipality.findFirst({ where: { name: city, uf: state } });
+    cityCodeCache.set(key, municipality?.code ?? null);
+  }
+  return cityCodeCache.get(key) ?? undefined;
+}
+
 const parseEventDate = (value: string) => {
   const [day, month, year] = value.split('/').map(Number);
   return new Date(Date.UTC(year, month - 1, day, 12));
@@ -38,12 +48,14 @@ async function seed() {
 
   for (const competitor of INITIAL_COMPETITORS) {
     const city = parseCity(competitor.cidade);
+    const cityCode = await resolveCityCode(city.city, city.state);
     await prisma.athlete.upsert({
       where: { registrationNo: competitor.registrationNo ?? `ref-${competitor.id}` },
       update: {
         name: competitor.nome,
         city: city.city,
         state: city.state,
+        cityCode,
         headHandicap: competitor.headHandicap ?? competitor.handicap,
         heelHandicap: competitor.heelHandicap ?? competitor.handicap,
         active: true,
@@ -53,6 +65,7 @@ async function seed() {
         name: competitor.nome,
         city: city.city,
         state: city.state,
+        cityCode,
         headHandicap: competitor.headHandicap ?? competitor.handicap,
         heelHandicap: competitor.heelHandicap ?? competitor.handicap,
       },
@@ -65,7 +78,12 @@ async function seed() {
     const arena = await prisma.arena.findFirst({
       where: { name: arenaName, city: arenaCity.city, state: arenaCity.state },
     }) ?? await prisma.arena.create({
-      data: { name: arenaName, city: arenaCity.city, state: arenaCity.state },
+      data: {
+        name: arenaName,
+        city: arenaCity.city,
+        state: arenaCity.state,
+        cityCode: await resolveCityCode(arenaCity.city, arenaCity.state),
+      },
     });
 
     const existing = await prisma.event.findFirst({ where: { name: referenceEvent.name } });

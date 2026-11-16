@@ -1,9 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import { Inbox, Plus } from 'lucide-react';
 import {
   Badge,
   Button,
+  Dialog,
   EmptyState,
   Input,
   PageHeader,
@@ -20,6 +22,7 @@ const STATUSES: EventStatus[] = ['OPEN', 'DRAWN', 'IN_PROGRESS', 'FINISHED', 'CA
 
 export function UiShowcase() {
   const confirm = useConfirm();
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-10 sm:px-6">
@@ -93,10 +96,36 @@ export function UiShowcase() {
         >
           Abrir confirmação
         </Button>
+        <Button variant="secondary" onClick={() => setDialogOpen(true)}>
+          Abrir diálogo
+        </Button>
         <Button variant="secondary" onClick={() => toast.success('Tudo certo', { description: 'Tempo registrado.' })}>
           Mostrar toast
         </Button>
       </section>
+
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        title="Novo atleta"
+        description="Exemplo do diálogo usado nos formulários de cadastro."
+      >
+        <form
+          noValidate
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setDialogOpen(false);
+            toast.success('Atleta salvo');
+          }}
+        >
+          <Input label="Nome" placeholder="Nome do atleta" />
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+            <Button type="submit">Salvar atleta</Button>
+          </div>
+        </form>
+      </Dialog>
     </main>
   );
 }

@@ -13,7 +13,7 @@ const LOGIN_REDIRECT_DELAY_MS = 2500;
 let redirecting = false;
 
 /** Único ponto que leva ao login ao perder a sessão, voltando depois para a página atual. */
-function redirectToLogin() {
+export function redirectToLogin() {
   if (typeof window === 'undefined' || redirecting) return;
   if (window.location.pathname === '/login') return;
   redirecting = true;

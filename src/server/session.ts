@@ -45,16 +45,19 @@ export async function requireRole(roles: readonly string[]): Promise<Authenticat
 }
 
 export class ActionAuthError extends Error {
-  constructor(message = 'Você não tem permissão para esta ação.') {
+  readonly code: 'UNAUTHENTICATED' | 'FORBIDDEN';
+
+  constructor(message = 'Você não tem permissão para esta ação.', code: 'UNAUTHENTICATED' | 'FORBIDDEN' = 'FORBIDDEN') {
     super(message);
     this.name = 'ActionAuthError';
+    this.code = code;
   }
 }
 
 /** Para Server Actions: lança em vez de redirecionar, para virar mensagem de erro. */
 export async function requireActionUser(roles: readonly string[] = OPERATOR_ROLES): Promise<AuthenticatedUser> {
   const user = await getCurrentUser();
-  if (!user) throw new ActionAuthError('Sua sessão expirou. Entre novamente.');
+  if (!user) throw new ActionAuthError('Sua sessão expirou. Entre novamente.', 'UNAUTHENTICATED');
   if (!roles.includes(user.role)) throw new ActionAuthError();
   return user;
 }

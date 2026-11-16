@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { getAuthenticatedUser } from '../../auth';
-import { prisma } from '../../prisma';
+import { OPERATOR_ROLES } from '../../permissions';
+import { createAthlete } from '../../services/commands/athletes';
+import { respondDomainError } from '../domain-error';
 import { findAthletesRaw } from '../../services/raw';
 
 interface VercelRequest {
@@ -36,7 +38,7 @@ const toHeaders = (input: VercelRequest['headers']) => {
   return headers;
 };
 
-const canManageAthletes = (role: string) => ['ADMIN', 'MANAGER', 'ORGANIZER', 'USER'].includes(role);
+const canManageAthletes = (role: string) => (OPERATOR_ROLES as readonly string[]).includes(role);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const user = await getAuthenticatedUser(toHeaders(req.headers));
@@ -61,16 +63,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const requestedOwnerId = typeof (req.body as { ownerId?: unknown })?.ownerId === 'string'
     ? (req.body as { ownerId: string }).ownerId
     : undefined;
-  const athlete = await prisma.athlete.create({
-    data: {
-      ...parsed.data,
-      email: parsed.data.email || null,
-      nickname: parsed.data.nickname || null,
-      phone: parsed.data.phone || null,
-      city: parsed.data.city || null,
-      state: parsed.data.state || null,
-      ownerId: user.role === 'USER' ? user.id : requestedOwnerId ?? user.id,
-    },
-  });
-  return res.status(201).json(athlete);
+  try {
+    const athlete = await createAthlete(user, { ...parsed.data, ownerId: requestedOwnerId });
+    return res.status(201).json(athlete);
+  } catch (error) {
+    return respondDomainError(res, error);
+  }
 }

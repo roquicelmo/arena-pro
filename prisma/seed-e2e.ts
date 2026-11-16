@@ -1,7 +1,7 @@
 import { assertTestDatabaseUrl } from '../scripts/assert-local-db.mjs';
 import { PrismaClient, type UserRole } from '@prisma/client';
 import { hash } from 'bcryptjs';
-import { TEST_EVENTS, TEST_USERS } from '../e2e/fixtures/users';
+import { TEST_ARENAS, TEST_EVENTS, TEST_SHARED_ATHLETE, TEST_USERS } from '../e2e/fixtures/users';
 
 const databaseUrl = process.env.DATABASE_URL;
 try {
@@ -37,19 +37,26 @@ async function upsertUser(key: keyof typeof TEST_USERS) {
   return prisma.user.upsert({ where: { email: user.email }, update: data, create: { email: user.email, ...data } });
 }
 
+async function resolveCityCode(name: string, uf: string) {
+  const municipality = await prisma.municipality.findFirst({ where: { name, uf } });
+  if (!municipality) throw new Error(`Município ${name}/${uf} não encontrado: a migration de localidades foi aplicada?`);
+  return municipality.code;
+}
+
 async function seedOwner(
   ownerId: string,
+  cityCode: number,
   arenaName: string,
   eventName: string,
   athletes: ReadonlyArray<{ name: string; head: number; heel: number; category: string }>,
 ) {
-  const arena = await prisma.arena.create({ data: { name: arenaName, city: 'Lagoa da Prata', state: 'MG', ownerId } });
+  const arena = await prisma.arena.create({ data: { name: arenaName, city: 'Lagoa da Prata', state: 'MG', cityCode, ownerId } });
   const event = await prisma.event.create({
     data: { name: eventName, eventDate: new Date(Date.UTC(2026, 11, 5, 12)), status: 'OPEN', arenaId: arena.id, createdById: ownerId },
   });
   for (const athlete of athletes) {
     const created = await prisma.athlete.create({
-      data: { name: athlete.name, city: 'Lagoa da Prata', state: 'MG', headHandicap: athlete.head, heelHandicap: athlete.heel, ownerId },
+      data: { name: athlete.name, city: 'Lagoa da Prata', state: 'MG', cityCode, headHandicap: athlete.head, heelHandicap: athlete.heel, ownerId },
     });
     await prisma.eventRegistration.create({ data: { eventId: event.id, athleteId: created.id, category: athlete.category } });
   }
@@ -61,8 +68,11 @@ async function main() {
   const userA = await upsertUser('userA');
   const userB = await upsertUser('userB');
   await upsertUser('blocked');
-  await seedOwner(userA.id, 'ARENA E2E A', TEST_EVENTS.userA, ATHLETES_USER_A);
-  await seedOwner(userB.id, 'ARENA E2E B', TEST_EVENTS.userB, ATHLETES_USER_B);
+  const cityCode = await resolveCityCode('Lagoa da Prata', 'MG');
+  await seedOwner(userA.id, cityCode, TEST_ARENAS.userA, TEST_EVENTS.userA, ATHLETES_USER_A);
+  await seedOwner(userB.id, cityCode, TEST_ARENAS.userB, TEST_EVENTS.userB, ATHLETES_USER_B);
+  const shared = await prisma.athlete.findFirstOrThrow({ where: { name: TEST_SHARED_ATHLETE, ownerId: userB.id } });
+  await prisma.athleteShare.create({ data: { athleteId: shared.id, userId: userA.id } });
   console.log('Seed de e2e concluído.');
 }
 

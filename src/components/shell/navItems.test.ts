@@ -10,10 +10,15 @@ describe('navItemsFor', () => {
     expect(navItemsFor('MANAGER').map((i) => i.href)).toContain('/usuarios');
     expect(navItemsFor('ADMIN').map((i) => i.href)).toContain('/usuarios');
   });
+  it('Cadastros vem logo depois de Usuários e só para gestores', () => {
+    const hrefs = navItemsFor('MANAGER').map((i) => i.href);
+    expect(hrefs.indexOf('/cadastros')).toBe(hrefs.indexOf('/usuarios') + 1);
+    expect(navItemsFor('USER').map((i) => i.href)).not.toContain('/cadastros');
+  });
   it('começa pelo Painel e mantém a ordem', () => {
     expect(navItemsFor('ADMIN')[0]).toMatchObject({ href: '/', label: 'Painel' });
     expect(navItemsFor('ADMIN').map((i) => i.href)).toEqual([
-      '/', '/provas', '/atletas', '/agenda', '/sorteio-avulso', '/usuarios', '/relatorios',
+      '/', '/provas', '/atletas', '/agenda', '/sorteio-avulso', '/usuarios', '/cadastros', '/relatorios',
     ]);
   });
 });

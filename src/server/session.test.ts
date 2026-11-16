@@ -55,6 +55,7 @@ describe('session', () => {
   it('requireActionUser lança ActionAuthError sem sessão', async () => {
     mockAuth(null);
     await expect(requireActionUser()).rejects.toBeInstanceOf(ActionAuthError);
+    await expect(requireActionUser()).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
   });
 
   it('requireActionUser sem papéis explícitos recusa VIEWER', async () => {
@@ -65,5 +66,6 @@ describe('session', () => {
   it('requireActionUser lança ActionAuthError para papel não permitido', async () => {
     mockAuth({ id: 'u1', role: 'USER' });
     await expect(requireActionUser(MANAGER_ROLES)).rejects.toBeInstanceOf(ActionAuthError);
+    await expect(requireActionUser(MANAGER_ROLES)).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 });

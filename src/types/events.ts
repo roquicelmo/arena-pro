@@ -4,6 +4,7 @@ export interface EventSummary {
   id: string;
   name: string;
   date: string;
+  isoDate: string; // AAAA-MM-DD (UTC)
   format: string;
   arena: string;
   status: EventStatus;
