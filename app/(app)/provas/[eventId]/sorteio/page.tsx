@@ -2,15 +2,18 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Users } from 'lucide-react';
 import { EmptyState } from '../../../../../src/components/ui';
-import { getEventRegistrations } from '../../../../../src/server/services/draws';
+import { getEventRegistrations, getLatestDraw } from '../../../../../src/server/services/draws';
 import { loadEvent } from '../loadEvent';
 import { DrawClient } from './DrawClient';
 
 export default async function EventDrawPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const { user, event } = await loadEvent(eventId);
-  const registrations = await getEventRegistrations(user, event.id);
-  if (!registrations) notFound();
+  const [registrations, latestDraw] = await Promise.all([
+    getEventRegistrations(user, event.id),
+    getLatestDraw(user, event.id),
+  ]);
+  if (!registrations || !latestDraw) notFound();
   const { cabeceiros, pezeiros } = registrations;
 
   if (!cabeceiros.length || !pezeiros.length) {
@@ -31,5 +34,5 @@ export default async function EventDrawPage({ params }: { params: Promise<{ even
     );
   }
 
-  return <DrawClient eventId={event.id} cabeceiros={cabeceiros} pezeiros={pezeiros} />;
+  return <DrawClient eventId={event.id} cabeceiros={cabeceiros} pezeiros={pezeiros} initialConfig={latestDraw.configuration} />;
 }

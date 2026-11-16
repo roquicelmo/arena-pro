@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation';
 import { DrawConfiguration } from '../../../../../src/components/DrawConfiguration';
 import { toast } from '../../../../../src/components/ui';
 import { apiRequest } from '../../../../../src/lib/apiClient';
-import { DEFAULT_DRAW_CONFIG } from '../../../../../src/lib/drawDefaults';
 import type { Competitor, DrawConfig } from '../../../../../src/types/roping';
 
 interface DrawClientProps {
   eventId: string;
   cabeceiros: Competitor[];
   pezeiros: Competitor[];
+  /** Configuração do último sorteio da prova (ou a padrão). */
+  initialConfig: DrawConfig;
 }
 
 const celebrate = () => {
@@ -25,9 +26,9 @@ const celebrate = () => {
     .catch(() => undefined);
 };
 
-export function DrawClient({ eventId, cabeceiros, pezeiros }: DrawClientProps) {
+export function DrawClient({ eventId, cabeceiros, pezeiros, initialConfig }: DrawClientProps) {
   const router = useRouter();
-  const [config, setConfig] = useState<DrawConfig>(DEFAULT_DRAW_CONFIG);
+  const [config, setConfig] = useState<DrawConfig>(initialConfig);
   const [pending, setPending] = useState(false);
 
   const onGenerateDraw = async () => {

@@ -31,6 +31,41 @@ test('fluxo da prova do user A: inscrições → sorteio → pista com tempo per
   await expect(page.getByPlaceholder('0.00').first()).toHaveValue(/8[.,]12/);
 });
 
+test('tempo editado na pista continua após trocar de aba e voltar', async ({ page }) => {
+  await loginAs(page, 'admin');
+  await openEvent(page, TEST_EVENTS.userA);
+  await tab(page, 'Sorteio').click();
+  await page.getByRole('button', { name: /gerar sorteio/i }).click();
+  await expect(page).toHaveURL(/\/pista$/);
+  const firstTime = page.getByPlaceholder('0.00').first();
+  await firstTime.fill('9.34');
+  // Sai antes da gravação terminar (o PATCH sai na desmontagem).
+  await tab(page, 'Locução').click();
+  await expect(page).toHaveURL(/\/locucao$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/pista$/);
+  await expect(page.getByPlaceholder('0.00').first()).toHaveValue(/9[.,]34/);
+  await page.reload();
+  await expect(page.getByPlaceholder('0.00').first()).toHaveValue(/9[.,]34/);
+});
+
+test('falha ao limpar tempos volta a mostrar os tempos do banco', async ({ page }) => {
+  await loginAs(page, 'admin');
+  await openEvent(page, TEST_EVENTS.userA);
+  await tab(page, 'Sorteio').click();
+  await page.getByRole('button', { name: /gerar sorteio/i }).click();
+  await expect(page).toHaveURL(/\/pista$/);
+  const firstTime = page.getByPlaceholder('0.00').first();
+  await firstTime.fill('7.56');
+  await firstTime.press('Tab');
+  await expect(page.getByText(/tempo salvo/i).first()).toBeVisible();
+  await page.route('**/api/runs/*/times', (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"falha"}' }));
+  await page.getByRole('button', { name: 'Limpar Tempos' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Limpar tempos' }).click();
+  await expect(page.getByText('Alguns tempos não puderam ser apagados no banco.')).toBeVisible();
+  await expect(page.getByPlaceholder('0.00').first()).toHaveValue(/7[.,]56/);
+});
+
 test('user B recebe 404 nas rotas da prova do user A', async ({ page }) => {
   await loginAs(page, 'userA');
   await openEvent(page, TEST_EVENTS.userA);

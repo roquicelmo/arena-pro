@@ -7,6 +7,7 @@ import { toast } from '../../../../../src/components/ui';
 import { apiRequest } from '../../../../../src/lib/apiClient';
 import type { EventSummary } from '../../../../../src/types/events';
 import type { Run } from '../../../../../src/types/roping';
+import { useFreshServerData } from '../useFreshServerData';
 
 interface ResultsClientProps {
   event: EventSummary;
@@ -16,6 +17,7 @@ interface ResultsClientProps {
 
 export function ResultsClient({ event, runs, published }: ResultsClientProps) {
   const router = useRouter();
+  useFreshServerData();
   const [pending, setPending] = useState(false);
 
   const onPublish = async () => {

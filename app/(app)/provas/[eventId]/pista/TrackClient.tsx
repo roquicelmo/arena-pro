@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation';
 import { RunsTable } from '../../../../../src/components/RunsTable';
 import { toast, useConfirm } from '../../../../../src/components/ui';
 import { apiRequest } from '../../../../../src/lib/apiClient';
-import { DEFAULT_DRAW_CONFIG } from '../../../../../src/lib/drawDefaults';
-import type { Run } from '../../../../../src/types/roping';
+import type { DrawConfig, Run } from '../../../../../src/types/roping';
 import { calculateRunTotal } from '../../../../../src/utils/drawAlgorithm';
+import { trackSave, useFreshServerData } from '../useFreshServerData';
 
 interface TrackClientProps {
   eventId: string;
   runs: Run[];
+  config: DrawConfig;
 }
 
 type Bull = 1 | 2 | 3;
@@ -44,25 +45,37 @@ const hasAnyTime = (run: Run) =>
   Boolean(run.times.boi1 || run.times.boi2 || run.times.boi3 || run.times.boi1Nt || run.times.boi2Nt || run.times.boi3Nt);
 
 const patchTime = (runId: string, bullNumber: number, timeSeconds: number | null, isNt: boolean) =>
-  apiRequest(`/api/runs/${runId}/times`, {
+  trackSave(apiRequest(`/api/runs/${runId}/times`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ bullNumber, timeSeconds, isNt }),
-  }, SAVE_ERROR);
+  }, SAVE_ERROR));
 
-export function TrackClient({ eventId, runs: initialRuns }: TrackClientProps) {
+export function TrackClient({ eventId, runs: initialRuns, config }: TrackClientProps) {
   const router = useRouter();
   const confirm = useConfirm();
   const [runs, setRuns] = useState(initialRuns);
+  const [seed, setSeed] = useState(initialRuns);
+  /** Tempos editados aqui que ainda não terminaram de gravar. */
+  const [unsaved, setUnsaved] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const runsRef = useRef(runs);
   const pendingSaves = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; run: () => void }>());
   const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Dados novos do servidor (router.refresh, voltar/avançar): ressincroniza o estado
+  // local, a menos que ainda haja edição local aguardando gravação.
+  if (seed !== initialRuns) {
+    setSeed(initialRuns);
+    if (unsaved === 0) setRuns(initialRuns);
+  }
+
   useEffect(() => {
     runsRef.current = runs;
   }, [runs]);
+
+  useFreshServerData();
 
   // Ao sair da tela, grava imediatamente o que ainda estava aguardando.
   useEffect(() => {
@@ -92,6 +105,8 @@ export function TrackClient({ eventId, runs: initialRuns }: TrackClientProps) {
       setSaveStatus('idle');
       toast.error(error instanceof Error ? error.message : SAVE_ERROR);
       return;
+    } finally {
+      setUnsaved((count) => Math.max(0, count - 1));
     }
     showSaved();
   };
@@ -100,6 +115,7 @@ export function TrackClient({ eventId, runs: initialRuns }: TrackClientProps) {
     const saves = pendingSaves.current;
     const existing = saves.get(key);
     if (existing) clearTimeout(existing.timer);
+    else setUnsaved((count) => count + 1);
     const timer = setTimeout(() => {
       saves.delete(key);
       run();
@@ -133,8 +149,10 @@ export function TrackClient({ eventId, runs: initialRuns }: TrackClientProps) {
       tone: 'danger',
     });
     if (!confirmed) return;
+    const dropped = pendingSaves.current.size;
     for (const { timer } of pendingSaves.current.values()) clearTimeout(timer);
     pendingSaves.current.clear();
+    setUnsaved((count) => Math.max(0, count - dropped));
 
     const withTimes = runsRef.current.filter(hasAnyTime);
     const cleared = runsRef.current.map((run) => ({
@@ -152,6 +170,7 @@ export function TrackClient({ eventId, runs: initialRuns }: TrackClientProps) {
     ));
     if (results.some((result) => result.status === 'rejected')) {
       toast.error('Alguns tempos não puderam ser apagados no banco.');
+      // O refresh traz o estado real do banco e a ressincronização acima o aplica.
       router.refresh();
       return;
     }
@@ -164,7 +183,7 @@ export function TrackClient({ eventId, runs: initialRuns }: TrackClientProps) {
     <>
       <RunsTable
         runs={runs}
-        config={DEFAULT_DRAW_CONFIG}
+        config={config}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         onReDraw={goToDraw}
