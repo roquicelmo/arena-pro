@@ -50,7 +50,7 @@ export function TimeCell({ runNumber, bull, value, nt, disabled, onChange, onNt 
           if (event.key === 'Enter') {
             event.preventDefault();
             focusNext(event.currentTarget);
-          } else if (event.key === 'n' || event.key === 'N') {
+          } else if ((event.key === 'n' || event.key === 'N') && !event.ctrlKey && !event.metaKey && !event.altKey && !event.nativeEvent.isComposing) {
             event.preventDefault();
             onNt(!nt);
           } else if (event.key === 'Escape') {

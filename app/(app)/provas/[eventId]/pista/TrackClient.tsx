@@ -12,6 +12,8 @@ import { trackSave, useFreshServerData } from '../useFreshServerData';
 
 interface TrackClientProps {
   runs: Run[];
+  /** Resultado publicado: campos bloqueados. */
+  locked?: boolean;
 }
 
 type Bull = 1 | 2 | 3;
@@ -56,7 +58,17 @@ const patchTime = (runId: string, bullNumber: number, timeSeconds: number | null
     keepalive: true,
   }, SAVE_ERROR)));
 
-export function TrackClient({ runs: initialRuns }: TrackClientProps) {
+/** Envio direto (sem fila) para o fechamento da aba: com keepalive, sobrevive ao descarregamento. */
+const sendNow = (runId: string, bullNumber: number, timeSeconds: number | null, isNt: boolean) => {
+  void fetch(`/api/runs/${runId}/times`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bullNumber, timeSeconds, isNt }),
+    keepalive: true,
+  }).catch(() => undefined);
+};
+
+export function TrackClient({ runs: initialRuns, locked = false }: TrackClientProps) {
   const router = useRouter();
   const confirm = useConfirm();
   const [runs, setRuns] = useState(initialRuns);
@@ -68,7 +80,7 @@ export function TrackClient({ runs: initialRuns }: TrackClientProps) {
   /** Instante do refresh pedido ao montar (0 = nenhum pendente) e da última edição local. */
   const mountRefreshAt = useRef(0);
   const lastEditAt = useRef(0);
-  const pendingSaves = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; run: () => void }>());
+  const pendingSaves = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; run: () => void; sendOnUnload: () => void }>());
   const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Dados novos do servidor (router.refresh, voltar/avançar): ressincroniza o estado
@@ -93,6 +105,7 @@ export function TrackClient({ runs: initialRuns }: TrackClientProps) {
   useEffect(() => {
     const saves = pendingSaves.current;
     const timer = statusTimer;
+    // Navegação dentro do app: o app continua vivo, então a fila em série vale.
     const flush = () => {
       for (const { timer: pending, run } of saves.values()) {
         clearTimeout(pending);
@@ -100,9 +113,17 @@ export function TrackClient({ runs: initialRuns }: TrackClientProps) {
       }
       saves.clear();
     };
-    window.addEventListener('pagehide', flush);
+    // Fechar a aba: só o último valor de cada boi está pendente; vai direto, com keepalive.
+    const flushOnUnload = () => {
+      for (const { timer: pending, sendOnUnload } of saves.values()) {
+        clearTimeout(pending);
+        sendOnUnload();
+      }
+      saves.clear();
+    };
+    window.addEventListener('pagehide', flushOnUnload);
     return () => {
-      window.removeEventListener('pagehide', flush);
+      window.removeEventListener('pagehide', flushOnUnload);
       flush();
       if (timer.current) clearTimeout(timer.current);
     };
@@ -125,6 +146,9 @@ export function TrackClient({ runs: initialRuns }: TrackClientProps) {
         toast.error(SESSION_EXPIRED_ERROR, { id: 'session-expired', duration: Infinity });
       } else {
         toast.error(error instanceof Error ? error.message : SAVE_ERROR);
+        // Recusado (ex.: resultado publicado, versão antiga): volta a tela ao que está no banco.
+        mountRefreshAt.current = 0;
+        router.refresh();
       }
       return;
     } finally {
@@ -133,7 +157,7 @@ export function TrackClient({ runs: initialRuns }: TrackClientProps) {
     showSaved();
   };
 
-  const schedule = (key: string, delay: number, run: () => void) => {
+  const schedule = (key: string, delay: number, run: () => void, sendOnUnload: () => void) => {
     const saves = pendingSaves.current;
     const existing = saves.get(key);
     if (existing) clearTimeout(existing.timer);
@@ -142,7 +166,7 @@ export function TrackClient({ runs: initialRuns }: TrackClientProps) {
       saves.delete(key);
       run();
     }, delay);
-    saves.set(key, { timer, run });
+    saves.set(key, { timer, run, sendOnUnload });
   };
 
   // Lógica movida de `handleUpdateTime` do App.tsx: atualiza a corrida na hora e grava no banco.
@@ -160,7 +184,7 @@ export function TrackClient({ runs: initialRuns }: TrackClientProps) {
     if (timeSeconds !== null && !Number.isFinite(timeSeconds)) return;
     const nt = isNt ?? ntOf(currentRun, boi);
     // NT e limpar gravam na hora; digitação espera a pausa.
-    schedule(`${runId}:${boi}`, isNt === undefined ? SAVE_DELAY_MS : 0, () => void persist(runId, boi, timeSeconds, nt));
+    schedule(`${runId}:${boi}`, isNt === undefined ? SAVE_DELAY_MS : 0, () => void persist(runId, boi, timeSeconds, nt), () => sendNow(runId, boi, timeSeconds, nt));
   };
 
   const onClearAllTimes = async () => {
@@ -204,7 +228,7 @@ export function TrackClient({ runs: initialRuns }: TrackClientProps) {
 
   return (
     <>
-      <TrackBoard runs={runs} onUpdateTime={onUpdateTime} onClearAllTimes={() => void onClearAllTimes()} />
+      <TrackBoard runs={runs} locked={locked} onUpdateTime={onUpdateTime} onClearAllTimes={() => void onClearAllTimes()} />
       <p
         role="status"
         aria-live="polite"

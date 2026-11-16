@@ -90,10 +90,10 @@ test('Ir para a corrida atual foca o 1º tempo dela; outro usuário não lança 
   await openEvent(page, TEST_EVENTS.userA);
   await openTrackWithDraw(page);
   await page.getByRole('button', { name: 'Ir para a corrida atual' }).click();
-  const current = page.locator('li[aria-current="true"]');
+  const current = page.locator('li[aria-current="step"]');
   await expect(current).toHaveCount(1);
   await expect(current.locator('input[data-time-cell]').first()).toBeFocused();
-  const runNumber = await current.locator('span').first().innerText();
+  const runNumber = (await current.locator('span').first().innerText()).match(/\d+/)![0];
   await expect(page.getByLabel(`Tempo boi 1 da corrida ${runNumber}`)).toBeFocused();
   const draws = await (await page.request.get(new URL(page.url()).pathname.replace(/^\/provas\/([^/]+).*/, '/api/events/$1/draws'))).json() as Array<{ runs: Array<{ id: string }> }>;
   const runId = draws[0].runs[0].id;

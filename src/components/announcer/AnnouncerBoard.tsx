@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Run } from '../../types/roping';
-import { currentRunId, trackStats } from '../../lib/currentRun';
+import { currentRunId, isRunDone, trackStats } from '../../lib/currentRun';
 import { StatTile } from '../ui';
 
 const hc = (n: number) => n.toFixed(1).replace('.', ',');
@@ -23,12 +23,12 @@ export function AnnouncerBoard({ eventId, runs }: { eventId: string; runs: Run[]
   const index = sorted.findIndex((r) => r.id === currentId);
   const current = index >= 0 ? sorted[index] : null;
   const upcoming = index >= 0 ? sorted.slice(index + 1, index + 6) : [];
-  const done = sorted.filter((r) => r.isNt || r.totalTime !== null).slice(-5).reverse();
+  const done = sorted.filter(isRunDone).slice(-5).reverse();
   const stats = trackStats(sorted);
 
   return (
     <div className="grid gap-4">
-      <section aria-label="Corrida atual" aria-live="polite" className="rounded-ui border-2 border-ink-strong bg-highlight p-5">
+      <section aria-label="Corrida atual" aria-live="polite" aria-atomic="true" className="rounded-ui border-2 border-ink-strong bg-highlight p-5">
         {current ? (
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <div className="shrink-0">

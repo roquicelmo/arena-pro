@@ -8,24 +8,32 @@ import { findScopedEvent } from './registrations';
 export const PUBLISH_MESSAGES = {
   empty: 'Não há corridas para publicar.',
   incomplete: 'Finalize ou marque como NT todas as corridas antes de publicar.',
+  already: 'O resultado desta prova já foi publicado.',
 } as const;
 
-/** Publica o resultado da versão vigente; só na prova do escopo do usuário (spec 6.4). */
+/**
+ * Publica o resultado da versão vigente; só na prova do escopo do usuário (spec 6.4).
+ * Roda sob a mesma trava de linha do lançamento de tempos: nenhum tempo apagado
+ * entre a checagem e a publicação deixa uma corrida incompleta publicada.
+ */
 export async function publishResults(user: ScopeUser, eventId: string) {
   await findScopedEvent(user, eventId);
-  const draw = await prisma.draw.findFirst({
-    where: { eventId },
-    orderBy: { version: 'desc' },
-    include: { runs: { select: { status: true } } },
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT 1 FROM "Event" WHERE id = ${eventId} FOR UPDATE`;
+    const event = await tx.event.findUnique({ where: { id: eventId }, select: { status: true, publishedAt: true } });
+    if (event?.status === 'FINISHED' || event?.publishedAt) throw new DomainError(PUBLISH_MESSAGES.already, { status: 409 });
+    const draw = await tx.draw.findFirst({
+      where: { eventId },
+      orderBy: { version: 'desc' },
+      include: { runs: { select: { status: true } } },
+    });
+    if (!draw || !draw.runs.length) throw new DomainError(PUBLISH_MESSAGES.empty, { status: 422 });
+    if (draw.runs.some((run) => run.status === 'PENDING' || run.status === 'IN_PROGRESS')) {
+      throw new DomainError(PUBLISH_MESSAGES.incomplete, { status: 422 });
+    }
+    const now = new Date();
+    const published = await tx.draw.update({ where: { id: draw.id }, data: { status: 'PUBLISHED', publishedAt: now } });
+    await tx.event.update({ where: { id: eventId }, data: { status: 'FINISHED', publishedAt: now } });
+    return published;
   });
-  if (!draw || !draw.runs.length) throw new DomainError(PUBLISH_MESSAGES.empty, { status: 422 });
-  if (draw.runs.some((run) => run.status === 'PENDING' || run.status === 'IN_PROGRESS')) {
-    throw new DomainError(PUBLISH_MESSAGES.incomplete, { status: 422 });
-  }
-  const now = new Date();
-  const [published] = await prisma.$transaction([
-    prisma.draw.update({ where: { id: draw.id }, data: { status: 'PUBLISHED', publishedAt: now } }),
-    prisma.event.update({ where: { id: eventId }, data: { status: 'FINISHED', publishedAt: now } }),
-  ]);
-  return published;
 }

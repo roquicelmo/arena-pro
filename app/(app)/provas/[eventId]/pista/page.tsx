@@ -12,5 +12,5 @@ export default async function EventTrackPage({ params }: { params: Promise<{ eve
   const { runs } = draw;
   if (!runs.length) return <NoDrawState eventId={event.id} />;
   // Um novo sorteio traz novas corridas: a chave remonta o estado local dos tempos.
-  return <TrackClient key={runs[0].id} runs={runs} />;
+  return <TrackClient key={runs[0].id} runs={runs} locked={event.status === 'FINALIZADA'} />;
 }

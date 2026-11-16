@@ -22,14 +22,17 @@ export function TrackRow({ run, current, disabled, onUpdateTime }: Props) {
   return (
     <li
       id={`corrida-${run.numero}`}
-      aria-current={current ? 'true' : undefined}
+      aria-current={current ? 'step' : undefined}
       className={cn(
         'grid scroll-mt-24 grid-cols-[3rem_minmax(0,1fr)] gap-x-3 gap-y-2 px-3 py-2.5 lg:grid-cols-[3rem_minmax(0,1fr)_minmax(0,1fr)_3.5rem_auto_6rem_6rem] lg:items-center',
-        current && 'bg-highlight',
+        current && 'border-l-4 border-ink-strong bg-highlight',
         run.isNt && 'opacity-80',
       )}
     >
-      <span className="row-span-2 font-display text-2xl font-bold text-ink-strong lg:row-span-1">{run.numero}</span>
+      <span className="row-span-2 font-display text-2xl font-bold text-ink-strong lg:row-span-1">
+        {run.numero}
+        {current && <span className="mt-0.5 block w-fit rounded-ui bg-ink-strong px-1 font-display text-[0.65rem] uppercase tracking-wider text-sand">Atual</span>}
+      </span>
       <span className="min-w-0 truncate text-sm text-ink-strong">
         <span className="font-semibold">{run.cabeceiro.nome}</span> <span className="text-ink-muted">{hc(run.cabeceiro.handicap)}</span>
         <span className="text-ink-muted lg:hidden"> × </span>

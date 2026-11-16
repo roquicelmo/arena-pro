@@ -12,6 +12,7 @@ type Bull = 1 | 2 | 3;
 
 interface Props {
   runs: Run[];
+  locked?: boolean;
   onUpdateTime: (runId: string, bull: Bull, value: string, isNt?: boolean) => void;
   onClearAllTimes: () => void;
 }
@@ -31,7 +32,7 @@ function exportCsv(runs: Run[]) {
 }
 
 /** Pista (spec 6.6): estatísticas, corrida atual, busca/bateria e lançamento por teclado. */
-export function TrackBoard({ runs, onUpdateTime, onClearAllTimes }: Props) {
+export function TrackBoard({ runs, locked = false, onUpdateTime, onClearAllTimes }: Props) {
   const [search, setSearch] = useState('');
   const [battery, setBattery] = useState('');
   const current = useMemo(() => currentRunId(runs), [runs]);
@@ -80,9 +81,10 @@ export function TrackBoard({ runs, onUpdateTime, onClearAllTimes }: Props) {
         <div className="flex flex-wrap gap-2 md:ml-auto">
           <Button disabled={!current} onClick={goToCurrent}><Crosshair className="h-4 w-4" aria-hidden="true" /> Ir para a corrida atual</Button>
           <Button variant="secondary" onClick={() => exportCsv(runs)}><Download className="h-4 w-4" aria-hidden="true" /> CSV</Button>
-          <Button variant="ghost" onClick={onClearAllTimes}><Eraser className="h-4 w-4" aria-hidden="true" /> Limpar tempos</Button>
+          <Button variant="ghost" disabled={locked} onClick={onClearAllTimes}><Eraser className="h-4 w-4" aria-hidden="true" /> Limpar tempos</Button>
         </div>
       </div>
+      {locked && <p role="status" className="rounded-ui bg-success-soft px-3 py-2 text-sm font-semibold text-success">Resultado publicado: os tempos estão bloqueados.</p>}
       <p className="text-xs text-ink-muted">Teclado: <kbd>Enter</kbd> avança para o próximo tempo · <kbd>N</kbd> marca NT · <kbd>Esc</kbd> desfaz a edição do campo.</p>
 
       {grouped.map(([b, items]) => {
@@ -93,7 +95,7 @@ export function TrackBoard({ runs, onUpdateTime, onClearAllTimes }: Props) {
               Bateria {b}{crosses.length === 1 ? ` · ${crosses[0]}` : ''}
             </h2>
             <ol className="divide-y divide-line">
-              {items.map((run) => <TrackRow key={run.id} run={run} current={run.id === current} onUpdateTime={onUpdateTime} />)}
+              {items.map((run) => <TrackRow key={run.id} run={run} current={run.id === current} disabled={locked} onUpdateTime={onUpdateTime} />)}
             </ol>
           </section>
         );
