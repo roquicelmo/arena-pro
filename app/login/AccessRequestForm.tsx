@@ -4,15 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { authClient } from '../../src/auth/session';
 import { Button, Input } from '../../src/components/ui';
-
-declare global {
-  interface Window {
-    grecaptcha?: {
-      render: (element: HTMLElement, options: { sitekey: string; callback: (token: string) => void; 'expired-callback': () => void }) => number;
-      reset: (widgetId?: number) => void;
-    };
-  }
-}
+import { loadRecaptcha } from '../../src/lib/recaptcha';
 
 const SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 
@@ -27,27 +19,22 @@ export function AccessRequestForm() {
 
   useEffect(() => {
     if (!SITE_KEY || widgetId.current !== null) return;
-    const renderCaptcha = () => {
-      if (recaptchaRef.current && window.grecaptcha && widgetId.current === null) {
-        widgetId.current = window.grecaptcha.render(recaptchaRef.current, {
+    let active = true;
+    loadRecaptcha()
+      .then((grecaptcha) => {
+        if (!active || !recaptchaRef.current || widgetId.current !== null) return;
+        widgetId.current = grecaptcha.render(recaptchaRef.current, {
           sitekey: SITE_KEY,
           callback: (token) => setRecaptchaToken(token),
           'expired-callback': () => setRecaptchaToken(''),
         });
-      }
+      })
+      .catch((error: unknown) => {
+        if (active) setErrorMessage(error instanceof Error ? `${error.message} Recarregue a página.` : 'Não foi possível carregar o reCAPTCHA.');
+      });
+    return () => {
+      active = false;
     };
-    const existing = document.querySelector<HTMLScriptElement>('script[src*="recaptcha/api.js"]');
-    if (existing) {
-      if (window.grecaptcha) renderCaptcha();
-      else existing.addEventListener('load', renderCaptcha, { once: true });
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = 'https://www.google.com/recaptcha/api.js?render=explicit';
-    script.async = true;
-    script.defer = true;
-    script.onload = renderCaptcha;
-    document.head.appendChild(script);
   }, []);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -64,7 +51,7 @@ export function AccessRequestForm() {
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Não foi possível enviar a solicitação.');
       setRecaptchaToken('');
-      if (widgetId.current !== null) window.grecaptcha?.reset(widgetId.current);
+      if (widgetId.current !== null) window.grecaptcha?.reset?.(widgetId.current);
     } finally {
       setSubmitting(false);
     }
