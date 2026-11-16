@@ -35,6 +35,7 @@ function EventForm({ onClose, event, arenas, states, defaultCity, onBusyChange }
   const [arenaId, setArenaId] = useState('');
   const [arenaName, setArenaName] = useState('');
   const [city, setCity] = useState<CityValue>({ uf: defaultCity.uf, cityCode: defaultCity.code, cityName: defaultCity.name });
+  const [cityLoading, setCityLoading] = useState(false);
 
   const saveAction = event
     ? (input: EventFormInput) => updateEventAction(event.id, { name: input.name, eventDate: input.eventDate })
@@ -86,7 +87,7 @@ function EventForm({ onClose, event, arenas, states, defaultCity, onBusyChange }
           {newArena && (
             <>
               <Input label="Nome da nova arena" name="arenaName" value={arenaName} onChange={(e) => setArenaName(e.target.value)} error={errors.arenaName?.[0]} maxLength={120} autoComplete="off" />
-              <CityPicker states={states} defaultUf={defaultCity.uf} defaultCity={{ code: defaultCity.code, name: defaultCity.name }} value={city} onChange={setCity} error={errors.cityCode?.[0]} />
+              <CityPicker states={states} defaultUf={defaultCity.uf} defaultCity={{ code: defaultCity.code, name: defaultCity.name }} value={city} onChange={setCity} onLoadingChange={setCityLoading} error={errors.cityCode?.[0]} />
             </>
           )}
         </>
@@ -95,7 +96,7 @@ function EventForm({ onClose, event, arenas, states, defaultCity, onBusyChange }
         <Button variant="secondary" onClick={onClose} disabled={save.pending}>
           Cancelar
         </Button>
-        <Button type="submit" loading={save.pending}>
+        <Button type="submit" disabled={cityLoading} loading={save.pending}>
           Salvar prova
         </Button>
       </div>

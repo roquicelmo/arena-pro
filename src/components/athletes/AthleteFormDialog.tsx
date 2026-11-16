@@ -49,6 +49,7 @@ function AthleteForm({ onClose, athlete, states, defaultCity, showOwner = false,
   const [nickname, setNickname] = useState(athlete?.apelido ?? '');
   const [club, setClub] = useState(athlete?.clube ?? '');
   const [city, setCity] = useState<CityValue>(initialCity);
+  const [cityLoading, setCityLoading] = useState(false);
   const [head, setHead] = useState(formatHandicap(athlete?.headHandicap));
   const [heel, setHeel] = useState(formatHandicap(athlete?.heelHandicap));
   const [duplicates, setDuplicates] = useState<Duplicate[] | null>(null);
@@ -137,7 +138,7 @@ function AthleteForm({ onClose, athlete, states, defaultCity, showOwner = false,
         defaultUf={initialCity.uf}
         defaultCity={initialCity.cityCode !== null ? { code: initialCity.cityCode, name: initialCity.cityName } : undefined}
         value={city}
-        onChange={setCity}
+        onChange={setCity} onLoadingChange={setCityLoading}
         error={cityError}
         hint={needsReview && athlete?.cidade ? `Cidade anterior: ${athlete.cidade}` : undefined}
       />
@@ -180,7 +181,7 @@ function AthleteForm({ onClose, athlete, states, defaultCity, showOwner = false,
         <Button variant="secondary" onClick={onClose} disabled={busy}>
           Cancelar
         </Button>
-        <Button type="submit" loading={busy}>
+        <Button type="submit" disabled={cityLoading} loading={busy}>
           Salvar atleta
         </Button>
       </div>

@@ -36,6 +36,7 @@ function ArenaForm({ onClose, arena, states, defaultCity, onBusyChange }: ArenaF
     : { uf: defaultCity.uf, cityCode: defaultCity.code, cityName: defaultCity.name };
   const [name, setName] = useState(arena?.name ?? '');
   const [city, setCity] = useState<CityValue>(initial);
+  const [cityLoading, setCityLoading] = useState(false);
 
   const saveAction = arena ? (input: ArenaFormInput) => updateArenaAction(arena.id, input) : createArenaAction;
   const save = useAction(saveAction, { successMessage: arena ? 'Arena atualizada.' : 'Arena cadastrada.' });
@@ -64,7 +65,7 @@ function ArenaForm({ onClose, arena, states, defaultCity, onBusyChange }: ArenaF
         defaultUf={initial.uf}
         defaultCity={initial.cityCode !== null ? { code: initial.cityCode, name: initial.cityName } : undefined}
         value={city}
-        onChange={setCity}
+        onChange={setCity} onLoadingChange={setCityLoading}
         error={errors.cityCode?.[0]}
         hint={arena && !known && arena.city ? `Cidade anterior: ${arena.city}` : undefined}
       />
@@ -72,7 +73,7 @@ function ArenaForm({ onClose, arena, states, defaultCity, onBusyChange }: ArenaF
         <Button variant="secondary" onClick={onClose} disabled={save.pending}>
           Cancelar
         </Button>
-        <Button type="submit" loading={save.pending}>
+        <Button type="submit" disabled={cityLoading} loading={save.pending}>
           Salvar arena
         </Button>
       </div>

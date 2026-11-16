@@ -66,4 +66,27 @@ describe('CityPicker', () => {
     render(<CityPicker states={STATES} defaultUf="GO" error="Escolha uma cidade da lista." />);
     expect(screen.getByText('Escolha uma cidade da lista.')).toBeInTheDocument();
   });
+
+  it('informa carregamento enquanto a lista da UF não chega e resolve o código depois', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const onLoadingChange = vi.fn();
+    let resolveList!: (value: unknown) => void;
+    listMunicipalitiesAction.mockImplementation((uf: string) =>
+      uf === 'MG' ? new Promise((resolve) => { resolveList = resolve; }) : Promise.resolve({ ok: true, data: LISTS[uf] }),
+    );
+    const { container } = render(
+      <CityPicker states={STATES} defaultUf="GO" defaultCity={{ code: 5201405, name: 'Caiapônia' }} onChange={onChange} onLoadingChange={onLoadingChange} />,
+    );
+    await waitFor(() => expect(onLoadingChange).toHaveBeenLastCalledWith(false));
+    await user.selectOptions(screen.getByLabelText('UF'), 'MG');
+    await user.type(screen.getByLabelText('Cidade'), 'lagoa da prata');
+    expect(onLoadingChange).toHaveBeenLastCalledWith(true);
+    expect(screen.getByText('Carregando cidades…')).toBeInTheDocument();
+    expect(onChange).toHaveBeenLastCalledWith({ uf: 'MG', cityCode: null, cityName: 'lagoa da prata' });
+    resolveList({ ok: true, data: LISTS.MG });
+    await waitFor(() => expect(onLoadingChange).toHaveBeenLastCalledWith(false));
+    expect(onChange).toHaveBeenLastCalledWith({ uf: 'MG', cityCode: 3137601, cityName: 'lagoa da prata' });
+    expect(hidden(container).value).toBe('3137601');
+  });
 });

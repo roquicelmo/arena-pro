@@ -84,10 +84,10 @@ describe('AthleteFormDialog', () => {
     expect(screen.getByLabelText('Cidade')).toHaveValue('Caiapônia');
   });
 
-  it('cidade a revisar começa vazia com a dica', () => {
+  it('cidade a revisar começa vazia com a dica', async () => {
     setup({ athlete: { id: 'a1', nome: 'Zé', handicap: 3, cidade: 'Lagoa Velha', cityNeedsReview: true } });
     expect(screen.getByLabelText('Cidade')).toHaveValue('');
-    expect(screen.getByText('Cidade anterior: Lagoa Velha')).toBeInTheDocument();
+    expect(await screen.findByText('Cidade anterior: Lagoa Velha')).toBeInTheDocument();
   });
 
   it('duplicado mostra o aviso e "Cadastrar mesmo assim" cria', async () => {
