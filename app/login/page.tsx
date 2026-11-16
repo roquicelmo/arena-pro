@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '../../src/server/session';
 import { safeNextPath } from '../../src/lib/safeNextPath';
@@ -15,8 +16,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <main className="flex min-h-screen bg-sand">
       <aside className="relative hidden flex-1 flex-col justify-between overflow-hidden bg-nav p-12 lg:flex" aria-hidden="true">
-        <p className="font-display text-xl font-bold uppercase tracking-widest text-ink-strong">Arena Pro</p>
-        <p className="font-display text-7xl font-bold uppercase leading-[0.95] tracking-tight text-ink-strong xl:text-8xl">
+        {/* Foto já convertida para preto e branco; a camada areia translúcida mantém o texto legível. */}
+        <Image src="/images/login-laco-em-dupla.jpg" alt="" fill sizes="(min-width: 1024px) 65vw, 1px" className="object-cover object-center" />
+        <div className="absolute inset-0 bg-nav/80" />
+        <p className="relative font-display text-xl font-bold uppercase tracking-widest text-ink-strong">Arena Pro</p>
+        <p className="relative font-display text-7xl font-bold uppercase leading-[0.95] tracking-tight text-ink-strong xl:text-8xl">
           Provas de laço
           <br />
           <span className="text-accent">em dupla</span>
