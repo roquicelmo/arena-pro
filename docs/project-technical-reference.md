@@ -149,8 +149,21 @@ testes e roda `db:test:reset` antes de cada execução.
 
 ```text
 app/
-  layout.tsx
-  page.tsx
+  layout.tsx                  # HTML global, tema e Toaster
+  login/page.tsx              # /login (pública)
+  dev/ui/page.tsx             # vitrine dos componentes de UI
+  (app)/                      # rotas autenticadas
+    layout.tsx                # sessão no servidor + AppShell
+    error.tsx
+    (painel)/page.tsx         # /
+    provas/(lista)/page.tsx   # /provas
+    provas/[eventId]/         # layout com abas; page, inscricoes, sorteio,
+                              # pista, locucao, resultado
+    atletas/                  # /atletas
+    agenda/                   # /agenda
+    relatorios/               # /relatorios
+    usuarios/                 # /usuarios (papéis de gestão)
+    sorteio-avulso/           # /sorteio-avulso (QuickDrawClient)
 
 pages/
   api/
@@ -161,13 +174,14 @@ pages/
         [provider].ts
 
 src/
-  App.tsx
   index.css
 
   auth/
     session.ts
 
   components/
+    shell/                    # AppShell, SidebarNav, MobileDrawer, navItems
+    ui/                       # primitivos (Button, Badge, Field, Toaster...)
     AgendaPage.tsx
     AnnouncerPage.tsx
     AthletesPage.tsx
@@ -175,24 +189,23 @@ src/
     DrawConfiguration.tsx
     EventDetailsPage.tsx
     EventsPage.tsx
-    LoginPage.tsx
     NewCompetitorModal.tsx
     RegistrationPage.tsx
     ReportsPage.tsx
     ResultsPage.tsx
     RunsTable.tsx
-    SectionPlaceholder.tsx
-    Sidebar.tsx
     TransferList.tsx
     UsersPage.tsx
     WizardHeader.tsx
-    ui/
-      Button.tsx
-      cn.ts
 
   data/
     referenceAthletes.ts
     referenceEvents.ts
+
+  lib/
+    apiClient.ts              # apiRequest para os bridges client
+    drawDefaults.ts
+    mappers.ts
 
   server/
     auth.ts
@@ -200,7 +213,9 @@ src/
     next-data-gateway.ts
     permissions.ts
     prisma.ts
+    session.ts                # requireUser()
     routes/
+    services/                 # leitura de dados para os Server Components
 
   types/
     events.ts
@@ -213,6 +228,8 @@ prisma/
   schema.prisma
   seed.ts
   migrations/
+
+e2e/                          # Playwright (desktop e mobile)
 
 docs/
   technical.md
@@ -259,59 +276,49 @@ individuais e rewrites da Vercel. A arquitetura foi migrada para Next.js.
 
 ## 6. Arquitetura do Next.js
 
-### 6.1 Página principal
+### 6.1 Rotas
 
-[`app/page.tsx`](../app/page.tsx) é um Client Component que reutiliza
-[`src/App.tsx`](../src/App.tsx).
+O `src/App.tsx` foi removido: cada seção é uma rota App Router.
 
-O `App.tsx` ainda concentra boa parte da orquestração client-side:
+| Rota | Conteúdo |
+| --- | --- |
+| `/login` | Login e solicitação de acesso (pública) |
+| `/` | Painel |
+| `/provas` | Lista de provas e arenas |
+| `/provas/[eventId]` | Detalhes da prova |
+| `/provas/[eventId]/inscricoes` | Inscrições |
+| `/provas/[eventId]/sorteio` | Configuração e geração do sorteio |
+| `/provas/[eventId]/pista` | Pista e lançamento de tempos |
+| `/provas/[eventId]/locucao` | Locução |
+| `/provas/[eventId]/resultado` | Resultados e publicação |
+| `/atletas` | Cadastro de atletas |
+| `/agenda` | Minha agenda |
+| `/relatorios` | Relatórios |
+| `/usuarios` | Usuários (perfis de gestão) |
+| `/sorteio-avulso` | Sorteio rápido, só em memória |
 
-- sessão;
-- carregamento inicial;
-- navegação;
-- seleção da prova;
-- inscrições;
-- sorteio;
-- pista;
-- locução;
-- resultados;
-- logout;
-- CRUD de atletas;
-- CRUD de provas;
-- filtros por proprietário.
+### 6.2 Layout e sessão
 
-Essa concentração mantém o comportamento atual, mas a divisão futura em rotas
-App Router é uma melhoria recomendada.
+[`app/layout.tsx`](../app/layout.tsx) define `lang="pt-BR"`, importa
+`src/index.css` e renderiza o HTML global.
 
-### 6.2 Layout
+[`app/(app)/layout.tsx`](../app/(app)/layout.tsx) lê a sessão no servidor e
+renderiza o `AppShell` (menu lateral no desktop, drawer no mobile). Sem sessão,
+(via `requireUser()`) redireciona para `/login`. Como layouts não rodam de novo em navegação client,
+cada `page.tsx` também chama `requireUser()`
+([`src/server/session.ts`](../src/server/session.ts)).
 
-[`app/layout.tsx`](../app/layout.tsx):
+### 6.3 Dados e mutações
 
-- define `lang="pt-BR"`;
-- importa `src/index.css`;
-- configura título;
-- configura descrição;
-- renderiza a estrutura HTML global.
-
-### 6.3 Navegação visual
-
-A navegação atual usa estado React em `activeSection`, com sidebar desktop e
-drawer mobile. As seções visuais ainda não são páginas App Router independentes.
-
-Seções atuais:
-
-- Painel geral;
-- Provas e arenas;
-- Cadastro de atletas;
-- Minha agenda;
-- Usuários;
-- Relatórios;
-- Novo sorteio;
-- detalhes da prova;
-- inscrições;
-- pista;
-- locução;
-- resultados.
+- As páginas são Server Components e leem dados pelos serviços em
+  `src/server/services/*` (atletas, arenas, provas, sorteios, usuários),
+  que aplicam o escopo por papel e proprietário.
+- Os componentes de tela continuam Client Components e recebem os dados por
+  props, por meio de "bridges" (`*Client.tsx`) em cada rota.
+- Mutações chamam `/api/*` com `apiRequest`
+  ([`src/lib/apiClient.ts`](../src/lib/apiClient.ts)) e, em seguida,
+  `router.refresh()` para recarregar os dados do servidor.
+- O sorteio avulso não persiste nada: usa `executeGroupCrossDraw` no cliente.
 
 ## 7. Arquitetura da API
 
@@ -1481,34 +1488,14 @@ componentes próprios com React, Tailwind e Lucide.
 
 ## 23. Componentes principais
 
-### `App`
+### Shell e bridges
 
-[`src/App.tsx`](../src/App.tsx)
-
-Orquestra:
-
-- autenticação;
-- carregamento de dados;
-- navegação;
-- seleção de prova;
-- sorteio;
-- pista;
-- locução;
-- resultados;
-- logout;
-- CRUD.
-
-### `LoginPage`
-
-[`src/components/LoginPage.tsx`](../src/components/LoginPage.tsx)
-
-Responsável por:
-
-- login;
-- visualização da senha;
-- mensagem de erro;
-- solicitação de acesso;
-- carregamento explícito do reCAPTCHA.
+- [`AppShell`](../src/components/shell/AppShell.tsx): menu lateral, drawer
+  mobile e logout; montado em `app/(app)/layout.tsx`.
+- `*Client.tsx` em cada rota: ligam os componentes de tela às rotas `/api`
+  e chamam `router.refresh()` após cada mutação.
+- [`/login`](../app/login/page.tsx): login, visualização da senha, mensagem
+  de erro, solicitação de acesso e carregamento explícito do reCAPTCHA.
 
 ### `Dashboard`
 
@@ -1713,32 +1700,28 @@ Aplicado em:
 
 ### Inicialização
 
-1. `App.tsx` chama `/api/auth/session`;
-2. exibe `Carregando sessão...`;
-3. sessão anônima renderiza `LoginPage`;
-4. sessão autenticada renderiza o sistema;
-5. depois da sessão, carrega:
-   - `/api/athletes`;
-   - `/api/events`;
-   - `/api/arenas`;
-   - `/api/users`, para perfis autorizados.
-
-O carregamento dos dados depende da sessão para evitar chamadas prematuras que
-retornariam `401`.
+1. `app/(app)/layout.tsx` lê a sessão no servidor e (via `requireUser()`) redireciona para `/login`
+   quando ela não existe;
+2. cada `page.tsx` chama `requireUser()` e carrega os dados pelos serviços em
+   `src/server/services/*`;
+3. os dados chegam aos componentes por props, sem chamadas client de leitura.
 
 ### Login
 
-1. usuário preenche e-mail e senha;
+1. em `/login`, o usuário preenche e-mail e senha;
 2. `authClient.login()` executa o fluxo Auth.js;
-3. `authClient.getSession()` confirma a sessão;
-4. `App.tsx` atualiza `authSession`;
-5. dados protegidos são recarregados.
+3. após o sucesso, a navegação vai para `/`, já com a sessão no servidor.
+
+### Mutações
+
+1. o bridge da rota chama `/api/*` com `apiRequest`;
+2. em caso de erro, exibe um toast;
+3. em caso de sucesso, `router.refresh()` recarrega os dados da rota.
 
 ### Logout
 
-1. `authClient.logout()` chama Auth.js;
-2. `App.tsx` limpa `authSession`;
-3. a aplicação retorna à tela de login.
+1. o botão do shell chama `authClient.logout()`;
+2. a aplicação retorna a `/login`.
 
 ## 29. Status de provas
 
@@ -1828,46 +1811,10 @@ Foi validado:
 - adicionar testes de integração;
 - revisar labels internas de status.
 
-### Arquitetura futura
+### Arquitetura
 
-Dividir o `App.tsx` em rotas App Router:
-
-```text
-app/
-  login/
-    page.tsx
-  dashboard/
-    page.tsx
-  provas/
-    page.tsx
-    [eventId]/
-      page.tsx
-      inscricoes/
-        page.tsx
-      sorteio/
-        page.tsx
-      pista/
-        page.tsx
-      resultado/
-        page.tsx
-  atletas/
-    page.tsx
-  agenda/
-    page.tsx
-  usuarios/
-    page.tsx
-  relatorios/
-    page.tsx
-```
-
-Benefícios:
-
-- componente central menor;
-- URLs compartilháveis;
-- carregamento por rota;
-- controle de acesso por página;
-- melhor separação de responsabilidades;
-- manutenção mais simples.
+A divisão do `App.tsx` em rotas App Router (fase 1) está concluída. Próximas
+fases: PDF do sorteio avulso e demais ajustes de fluxo.
 
 ## 32. Skills utilizadas
 

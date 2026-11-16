@@ -53,3 +53,18 @@ test('texto sobre superfícies de destaque mantém contraste AA na pista da prov
   expect(results.length).toBeGreaterThan(0);
   for (const item of results) expect(item.ratio, item.text).toBeGreaterThanOrEqual(4.5);
 });
+
+// Superfícies laranja/âmbar antigas do RunsTable no sorteio avulso (etapa de corridas).
+test('texto sobre superfícies de destaque mantém contraste AA no sorteio avulso', async ({ page }) => {
+  await loginAs(page, 'userA');
+  await page.goto('/sorteio-avulso');
+  await page.getByRole('button', { name: /adicionar todos/i }).click();
+  await page.getByRole('button', { name: /avançar para cabeceiros/i }).click();
+  await page.getByRole('button', { name: /adicionar todos/i }).click();
+  await page.getByRole('button', { name: /avançar para configuração/i }).click();
+  await page.getByRole('button', { name: /gerar sorteio oficial/i }).click();
+  await expect(page.getByPlaceholder('0.00').first()).toBeVisible();
+  const results = await contrastOf(page, '.bg-accent, .bg-amber-500, .bg-amber-600, [class*="bg-[#e87900]"]');
+  expect(results.length).toBeGreaterThan(0);
+  for (const item of results) expect(item.ratio, item.text).toBeGreaterThanOrEqual(4.5);
+});
