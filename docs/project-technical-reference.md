@@ -189,17 +189,10 @@ src/
     records/                  # RecordsManager, ShareDialog, ReassignDialog
     locations/                # CityPicker (UF + cidade do IBGE)
     filters/                  # OwnerFilter
-    AnnouncerPage.tsx
     Dashboard.tsx
-    DrawConfiguration.tsx
     EventDetailsPage.tsx
-    RegistrationPage.tsx
     ReportsPage.tsx
-    ResultsPage.tsx
-    RunsTable.tsx
-    TransferList.tsx
     UsersPage.tsx
-    WizardHeader.tsx
 
   data/
     referenceAthletes.ts
