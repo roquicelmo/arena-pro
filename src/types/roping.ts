@@ -9,6 +9,10 @@ export interface Competitor {
   heelHandicap?: number;
   apelido?: string;
   cidade?: string;
+  estado?: string;
+  clube?: string;
+  cityCode?: number;
+  cityNeedsReview?: boolean; // há cidade em texto, mas sem código IBGE
   grupo?: string; // 'A', 'B', 'C', etc.
 }
 

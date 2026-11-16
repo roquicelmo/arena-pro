@@ -41,4 +41,24 @@ describe('mappers', () => {
     expect(summary).toMatchObject({ status: 'SORTEADA', arena: 'Lagoa', registeredAthletes: 4, runs: 1, ownerName: 'a@b.c', format: 'Todos x Todos' });
     expect(summary.steward).toBeUndefined();
   });
+
+  it('toEventSummary traz isoDate e data dd/mm/aaaa em UTC', () => {
+    const summary = toEventSummary({
+      id: 'e1', name: 'Prova', eventDate: new Date('2026-12-05T12:00:00Z'), status: 'OPEN',
+      arena: { name: 'Lagoa' }, createdBy: { id: 'u1', name: 'Ana', email: 'a@b.c' },
+      _count: { registrations: 0, draws: 0 },
+    });
+    expect(summary.isoDate).toBe('2026-12-05');
+    expect(summary.date).toBe('05/12/2026');
+  });
+
+  it('toCompetitor mapeia apelido, estado, clube e cidade', () => {
+    const c = toCompetitor(athleteFixture({ nickname: 'Zeca', state: 'GO', club: 'Lagoa', city: 'Caiapônia', cityCode: 5203500 }));
+    expect(c).toMatchObject({ apelido: 'Zeca', estado: 'GO', clube: 'Lagoa', cityCode: 5203500, cityNeedsReview: false });
+  });
+
+  it('sinaliza cidade em texto sem código para revisão', () => {
+    expect(toCompetitor(athleteFixture({ city: 'Algum Lugar' })).cityNeedsReview).toBe(true);
+    expect(toCompetitor(athleteFixture({ city: null })).cityNeedsReview).toBe(false);
+  });
 });

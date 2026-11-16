@@ -1,11 +1,16 @@
 import type { Competitor, Run } from '../types/roping';
 import type { EventSummary } from '../types/events';
+import type { ArenaOption } from '../types/arenas';
 
 export interface PersistedAthlete {
   id: string;
   registrationNo: string | null;
   name: string;
   city: string | null;
+  nickname?: string | null;
+  state?: string | null;
+  club?: string | null;
+  cityCode?: number | null;
   headHandicap: number | string;
   heelHandicap: number | string;
   ownerId?: string | null;
@@ -49,7 +54,12 @@ export const toCompetitor = (athlete: PersistedAthlete, role: 'head' | 'heel' = 
     id: athlete.id,
     registrationNo: athlete.registrationNo ?? undefined,
     nome: athlete.name,
+    apelido: athlete.nickname ?? undefined,
     cidade: athlete.city ?? undefined,
+    estado: athlete.state ?? undefined,
+    clube: athlete.club ?? undefined,
+    cityCode: athlete.cityCode ?? undefined,
+    cityNeedsReview: Boolean(athlete.city) && athlete.cityCode == null,
     handicap: role === 'head' ? headHandicap : heelHandicap,
     headHandicap,
     heelHandicap,
@@ -109,7 +119,8 @@ export const eventStatusLabel = (status: DbEventStatus): EventSummary['status'] 
 export const toEventSummary = (event: PersistedEvent): EventSummary => ({
   id: event.id,
   name: event.name,
-  date: new Intl.DateTimeFormat('pt-BR').format(new Date(event.eventDate)),
+  date: new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(new Date(event.eventDate)),
+  isoDate: new Date(event.eventDate).toISOString().slice(0, 10),
   format: 'Todos x Todos',
   arena: event.arena.name,
   status: eventStatusLabel(event.status),
@@ -118,4 +129,22 @@ export const toEventSummary = (event: PersistedEvent): EventSummary => ({
   steward: event.createdBy.name ?? undefined,
   ownerId: event.createdBy.id,
   ownerName: event.createdBy.name ?? event.createdBy.email,
+});
+
+export const toArenaOption = (arena: {
+  id: string;
+  name: string;
+  city: string;
+  state: string;
+  cityCode?: number | null;
+  ownerId?: string | null;
+  owner?: { name: string | null } | null;
+}): ArenaOption => ({
+  id: arena.id,
+  name: arena.name,
+  city: arena.city,
+  state: arena.state,
+  ...(arena.cityCode != null ? { cityCode: arena.cityCode } : {}),
+  ...(arena.ownerId ? { ownerId: arena.ownerId } : {}),
+  ...(arena.owner ? { ownerName: arena.owner.name } : {}),
 });
