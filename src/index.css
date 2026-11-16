@@ -1,19 +1,20 @@
 @import "tailwindcss";
 
+@import "./styles/tokens.css";
+
 @layer base {
   :root {
-    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    --surface-page: #f6f8fa;
-    --surface-raised: #ffffff;
-    --surface-subtle: #eef3f6;
-    --line-subtle: #dfe6ed;
-    --ink-strong: #172036;
-    --ink-default: #2f3b4f;
-    --ink-muted: #6b788b;
-    --brand-amber: #e87900;
-    --brand-blue: #218f83;
-    --brand-navy: #111a31;
+    /* Tokens legados (UI antiga) apontando para a identidade Arena até a migração das telas. */
+    --surface-page: var(--color-sand);
+    --surface-raised: var(--color-surface);
+    --surface-subtle: var(--color-nav);
+    --line-subtle: var(--color-line);
+    --ink-strong: var(--color-ink-strong);
+    --ink-default: var(--color-ink);
+    --ink-muted: var(--color-ink-muted);
+    --brand-amber: var(--color-accent);
+    --brand-blue: var(--color-ink-strong);
+    --brand-navy: var(--color-ink-strong);
   }
 
   html {
@@ -25,6 +26,7 @@
     background: var(--surface-page);
     color: var(--ink-default);
     min-width: 320px;
+    overflow-x: clip;
   }
 
   button:enabled,
@@ -67,13 +69,13 @@
   }
 
   .bg-slate-700 {
-    background-color: #e7edf2 !important;
+    background-color: var(--color-line-soft) !important;
   }
 
   .bg-blue-950\/40,
   .bg-emerald-950\/35,
   .bg-emerald-950\/50 {
-    background-color: #e5f5f2 !important;
+    background-color: var(--color-highlight) !important;
   }
 
   .hover\:bg-slate-950:hover,
@@ -81,7 +83,7 @@
   .hover\:bg-slate-800:hover,
   .hover\:bg-slate-800\/40:hover,
   .hover\:bg-slate-700:hover {
-    background-color: #e7edf2 !important;
+    background-color: var(--color-line-soft) !important;
   }
 
   .text-slate-100,
@@ -101,7 +103,7 @@
   }
 
   .bg-teal-50 {
-    background-color: #e5f5f2 !important;
+    background-color: var(--color-highlight) !important;
   }
 
   .bg-teal-800 {
@@ -110,11 +112,11 @@
 
   .text-teal-700,
   .text-teal-800 {
-    color: #176f67 !important;
+    color: var(--color-ink-strong) !important;
   }
 
   .bg-amber-50 {
-    background-color: #fff1df !important;
+    background-color: var(--color-accent-soft) !important;
   }
 
   .bg-amber-500,
@@ -126,12 +128,12 @@
   .hover\:bg-amber-500:hover,
   .hover\:bg-amber-600:hover,
   .hover\:bg-amber-700:hover {
-    background-color: #cf6900 !important;
+    background-color: var(--color-accent-hover) !important;
   }
 
   .text-amber-700,
   .text-amber-800 {
-    color: #bd5f00 !important;
+    color: var(--color-accent) !important;
   }
 
   .bg-teal-800.text-white,
@@ -148,24 +150,24 @@
   }
 
   .placeholder\:text-slate-500::placeholder {
-    color: #64748b !important;
+    color: var(--color-ink-muted) !important;
   }
 
   .text-amber-200,
   .text-amber-300,
   .text-amber-400 {
-    color: #a9521f !important;
+    color: var(--color-accent) !important;
   }
 
   .text-blue-200,
   .text-blue-300,
   .text-blue-400 {
-    color: #176b78 !important;
+    color: var(--color-ink) !important;
   }
 
   .text-emerald-300,
   .text-emerald-400 {
-    color: #047857 !important;
+    color: var(--color-success) !important;
   }
 
   .hover\:text-white:hover {
@@ -173,11 +175,11 @@
   }
 
   .focus\:border-slate-600:focus {
-    border-color: #94a3b8 !important;
+    border-color: var(--color-ink-muted) !important;
   }
 
   .selection\:bg-amber-500::selection {
-    background-color: #f59e0b;
+    background-color: var(--color-highlight);
     color: var(--ink-strong);
   }
 }
@@ -189,16 +191,16 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #e7edf2;
+  background: var(--color-line-soft);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #b4c0cc;
+  background: var(--color-line);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #8b9aaa;
+  background: var(--color-ink-muted);
 }
 
 /* Print styles for Arena Draw Table */
@@ -226,17 +228,17 @@
   }
   .print-header {
     background: white !important;
-    border: 2px solid #172036 !important;
-    color: #172036 !important;
+    border: 2px solid #000 !important;
+    color: #000 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
   }
   .print-header p,
   .print-header span {
-    color: #526276 !important;
+    color: #444 !important;
   }
   .print-header h2 {
-    color: #172036 !important;
+    color: #000 !important;
   }
   .print-avoid-break {
     break-inside: avoid;
