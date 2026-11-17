@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../prisma';
 import { DomainError, notFound } from '../errors';
+import { isAdmin, isManager } from '../../permissions';
 import { accessScope, eventScope } from '../scope';
 import type { ScopeUser } from './owner';
 
@@ -19,13 +20,18 @@ export async function findScopedEvent(user: ScopeUser, eventId: string) {
 }
 
 /**
- * Inscreve um atleta ativo que pertença ao dono da prova ou esteja compartilhado
- * com ele (spec 6.9). Reativa inscrição cancelada; inscrição ativa repetida = 409.
+ * Atletas que podem ser inscritos numa prova: Admin/Manager inscrevem qualquer atleta
+ * ativo (inclusive os antigos, sem dono); os demais, os do dono da prova ou
+ * compartilhados com ele (spec 6.9).
  */
+export const registrableAthleteScope = (user: ScopeUser, eventOwnerId: string) =>
+  isAdmin(user.role) || isManager(user.role) ? {} : accessScope({ id: eventOwnerId, role: 'USER' });
+
+/** Inscreve um atleta ativo do escopo acima. Reativa inscrição cancelada; inscrição ativa repetida = 409. */
 export async function registerAthlete(user: ScopeUser, eventId: string, input: { athleteId: string; category: RegistrationCategory }) {
   const event = await findScopedEvent(user, eventId);
   const athlete = await prisma.athlete.findFirst({
-    where: { id: input.athleteId, active: true, ...accessScope({ id: event.createdById, role: 'USER' }) },
+    where: { id: input.athleteId, active: true, ...registrableAthleteScope(user, event.createdById) },
     select: { id: true },
   });
   if (!athlete) throw new DomainError('Atleta não encontrado ou inativo.', { status: 404, field: 'athleteId' });

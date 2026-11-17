@@ -46,12 +46,12 @@ describe('registerAthlete', () => {
     expect(prisma.eventRegistration.create).not.toHaveBeenCalled();
   });
 
-  it('usa o escopo do dono da prova, não o do gerente que inscreve', async () => {
+  it.each(['ADMIN', 'MANAGER'])('%s inscreve qualquer atleta ativo, inclusive sem dono', async (role) => {
     prisma.event.findFirst.mockResolvedValue({ ...openEvent, createdById: 'dono' });
     prisma.athlete.findFirst.mockResolvedValue({ id: 'a1' });
     prisma.eventRegistration.findUnique.mockResolvedValue(null);
-    await registerAthlete({ id: 'm1', role: 'MANAGER' }, 'e1', { athleteId: 'a1', category: 'CABECEIRO' });
-    expect(prisma.athlete.findFirst.mock.calls[0][0].where.OR).toEqual([{ ownerId: 'dono' }, { shares: { some: { userId: 'dono' } } }]);
+    await registerAthlete({ id: 'm1', role }, 'e1', { athleteId: 'a1', category: 'CABECEIRO' });
+    expect(prisma.athlete.findFirst.mock.calls[0][0].where).toEqual({ id: 'a1', active: true });
     expect(prisma.eventRegistration.create).toHaveBeenCalled();
   });
 
