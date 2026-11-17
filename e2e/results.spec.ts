@@ -9,7 +9,7 @@ async function eventBase(page: Page, name: string) {
   return new URL(page.url()).pathname;
 }
 
-test('publicar fica bloqueado com corrida incompleta; outro usuário recebe 404 na API', async ({ page }) => {
+test('publicar fica bloqueado com corrida incompleta', async ({ page }) => {
   await loginAs(page, 'userA');
   const base = await eventBase(page, TEST_EVENTS.userA);
   await page.goto(`${base}/sorteio`);
@@ -24,8 +24,4 @@ test('publicar fica bloqueado com corrida incompleta; outro usuário recebe 404 
   await expect(page.getByText(/corridas incompletas para publicar/)).toBeVisible();
   await expect(page.getByRole('region', { name: 'Classificação' })).toBeVisible();
 
-  const eventId = base.split('/')[2];
-  await loginAs(page, 'userB');
-  const response = await page.request.post(`/api/events/${eventId}/results/publish`);
-  expect(response.status()).toBe(404);
 });

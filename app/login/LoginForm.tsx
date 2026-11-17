@@ -77,7 +77,7 @@ export function LoginForm({ next = '/', expired = false }: { next?: string; expi
             {expired && !errorMessage && (
               <div role="status" className="flex gap-2 rounded-ui border border-line bg-sand px-3 py-3 text-sm text-ink-strong">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                <span>Sua sessão expirou. Entre novamente para continuar.</span>
+                <span>Sua sessão expirou. Entre novamente para continuar — o que estava sendo lançado no momento (como um tempo) pode não ter sido salvo; confira ao voltar.</span>
               </div>
             )}
 

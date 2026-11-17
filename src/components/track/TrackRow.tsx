@@ -22,6 +22,7 @@ export function TrackRow({ run, current, disabled, onUpdateTime }: Props) {
   return (
     <li
       id={`corrida-${run.numero}`}
+      data-run-id={run.id}
       aria-current={current ? 'step' : undefined}
       className={cn(
         'grid scroll-mt-24 grid-cols-[3rem_minmax(0,1fr)] gap-x-3 gap-y-2 px-3 py-2.5 lg:grid-cols-[3rem_minmax(0,1fr)_minmax(0,1fr)_3.5rem_auto_6rem_6rem] lg:items-center',

@@ -95,8 +95,7 @@ test('Ir para a corrida atual foca o 1º tempo dela; outro usuário não lança 
   await expect(current.locator('input[data-time-cell]').first()).toBeFocused();
   const runNumber = (await current.locator('span').first().innerText()).match(/\d+/)![0];
   await expect(page.getByLabel(`Tempo boi 1 da corrida ${runNumber}`)).toBeFocused();
-  const draws = await (await page.request.get(new URL(page.url()).pathname.replace(/^\/provas\/([^/]+).*/, '/api/events/$1/draws'))).json() as Array<{ runs: Array<{ id: string }> }>;
-  const runId = draws[0].runs[0].id;
+  const runId = (await current.getAttribute('data-run-id'))!;
   await loginAs(page, 'userB');
   const response = await page.request.patch(`/api/runs/${runId}/times`, { data: { bullNumber: 1, timeSeconds: 7.5, isNt: false } });
   expect(response.status()).toBe(404);

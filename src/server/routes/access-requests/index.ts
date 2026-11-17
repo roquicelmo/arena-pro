@@ -1,7 +1,5 @@
 import { z } from 'zod';
-import { hash } from 'bcryptjs';
 import { prisma } from '../../prisma';
-import { getAuthenticatedUser } from '../../auth';
 import { evaluateRecaptcha, type SiteverifyResult } from '../../../lib/recaptchaPolicy';
 
 const requestSchema = z.object({
@@ -39,81 +37,6 @@ const verifyRecaptcha = async (token: string, remoteIp?: string) => {
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const headers = new Headers();
-  for (const [name, value] of Object.entries(req.headers ?? {})) {
-    if (typeof value === 'string') headers.set(name, value);
-    if (Array.isArray(value)) headers.set(name, value.join(', '));
-  }
-
-  if (req.method === 'GET' || req.method === 'PATCH') {
-    const actor = await getAuthenticatedUser(headers);
-    if (!actor || !['ADMIN', 'MANAGER', 'ORGANIZER'].includes(actor.role)) {
-      res.status(403).json({ message: 'Apenas Admin e Manager podem revisar solicitações.' });
-      return;
-    }
-
-    if (req.method === 'GET') {
-      const requests = await prisma.accessRequest.findMany({
-        where: { status: 'PENDING' },
-        orderBy: { createdAt: 'asc' },
-        select: { id: true, name: true, phone: true, email: true, status: true, createdAt: true },
-      });
-      res.status(200).json(requests);
-      return;
-    }
-
-    const body = req.body as { id?: unknown; status?: unknown; password?: unknown };
-    const id = typeof body.id === 'string' ? body.id : '';
-    const status = body.status === 'APPROVED' || body.status === 'REJECTED' ? body.status : null;
-    if (!id || !status) {
-      res.status(400).json({ message: 'Solicitação e decisão são obrigatórias.' });
-      return;
-    }
-
-    const accessRequest = await prisma.accessRequest.findUnique({ where: { id } });
-    if (!accessRequest || accessRequest.status !== 'PENDING') {
-      res.status(404).json({ message: 'Solicitação pendente não encontrada.' });
-      return;
-    }
-
-    if (status === 'APPROVED') {
-      if (typeof body.password !== 'string' || body.password.length < 8) {
-        res.status(400).json({ message: 'Informe uma senha inicial com pelo menos 8 caracteres.' });
-        return;
-      }
-      const existingUser = await prisma.user.findUnique({ where: { email: accessRequest.email } });
-      if (existingUser) {
-        res.status(409).json({ message: 'Já existe um usuário com este e-mail.' });
-        return;
-      }
-      await prisma.$transaction([
-        prisma.user.create({
-          data: {
-            name: accessRequest.name,
-            email: accessRequest.email,
-            passwordHash: await hash(body.password, 12),
-            role: 'USER',
-            provisional: true,
-            active: false,
-            managedById: actor.id,
-          },
-        }),
-        prisma.accessRequest.update({
-          where: { id },
-          data: { status, reviewedById: actor.id, reviewedAt: new Date() },
-        }),
-      ]);
-    } else {
-      await prisma.accessRequest.update({
-        where: { id },
-        data: { status, reviewedById: actor.id, reviewedAt: new Date() },
-      });
-    }
-
-    res.status(200).json({ success: true });
-    return;
-  }
-
   if (req.method !== 'POST') {
     res.status(405).json({ message: 'Método não permitido.' });
     return;
