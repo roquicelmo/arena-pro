@@ -163,7 +163,7 @@ export function RegistrationsView({ eventId, registrations, athletes }: Props) {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section aria-labelledby="disponiveis" className="flex min-w-0 flex-col rounded-ui border border-line bg-surface lg:h-[calc(100dvh-19rem)] lg:min-h-[24rem]">
+        <section aria-labelledby="disponiveis" className="flex min-w-0 flex-col rounded-ui border border-line bg-surface lg:h-[calc(100dvh-20rem)] lg:min-h-[24rem]">
           <div className="border-b border-line p-4">
             <h2 id="disponiveis" className="font-display text-lg font-bold uppercase tracking-wide text-ink-strong">
               Atletas disponíveis ({available.length})
@@ -196,7 +196,7 @@ export function RegistrationsView({ eventId, registrations, athletes }: Props) {
           )}
         </section>
 
-        <section aria-labelledby="inscritos" className="flex min-w-0 flex-col rounded-ui border border-line bg-surface lg:h-[calc(100dvh-19rem)] lg:min-h-[24rem]">
+        <section aria-labelledby="inscritos" className="flex min-w-0 flex-col rounded-ui border border-line bg-surface lg:h-[calc(100dvh-20rem)] lg:min-h-[24rem]">
           <div className="border-b border-line p-4">
             <h2 id="inscritos" className="font-display text-lg font-bold uppercase tracking-wide text-ink-strong">
               {step.label} inscritos ({inStep.length + pendingInStep.length})
