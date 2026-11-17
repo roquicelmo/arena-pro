@@ -39,12 +39,12 @@ export function TrackRow({ run, current, disabled, maxBulls = run.bois, onUpdate
         {run.numero}
         {current && <span className="mt-0.5 block w-fit rounded-ui bg-ink-strong px-1 font-display text-[0.65rem] uppercase tracking-wider text-sand">Atual</span>}
       </span>
-      <span className="min-w-0 truncate text-sm text-ink-strong">
+      <span className="min-w-0 truncate text-sm text-ink-strong" title={`${run.cabeceiro.nome} × ${run.pezeiro.nome}`}>
         <span className="font-semibold">{run.cabeceiro.nome}</span> <span className="text-ink-muted">{hc(run.cabeceiro.handicap)}</span>
         <span className="text-ink-muted lg:hidden"> × </span>
         <span className="font-semibold lg:hidden">{run.pezeiro.nome}</span>
       </span>
-      <span className="hidden min-w-0 truncate text-sm lg:block">
+      <span className="hidden min-w-0 truncate text-sm lg:block" title={run.pezeiro.nome}>
         <span className="font-semibold text-ink-strong">{run.pezeiro.nome}</span> <span className="text-ink-muted">{hc(run.pezeiro.handicap)}</span>
       </span>
       <span className="hidden text-sm tabular-nums text-ink-muted lg:block">{hc(run.shc)}</span>
