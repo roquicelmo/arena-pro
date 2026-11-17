@@ -215,7 +215,7 @@ src/
     actions/                  # Server Actions (runAction + athletes, arenas, events, shares)
     routes/
     services/                 # leitura de dados para os Server Components
-      commands/               # escrita compartilhada por actions e /api
+      commands/               # regras de escrita (usadas pelas actions e pelas 2 rotas /api restantes)
       localities.ts
       records.ts
 
@@ -322,11 +322,10 @@ cada `page.tsx` também chama `requireUser()`
   que aplicam o escopo por papel e proprietário.
 - Os componentes de tela continuam Client Components e recebem os dados por
   props, por meio de "bridges" (`*Client.tsx`) em cada rota.
-- Cadastros (atletas, arenas, provas e compartilhamento) mudam por Server
-  Actions (6.4). As demais telas ainda chamam `/api/*` com `apiRequest`
-  ([`src/lib/apiClient.ts`](../src/lib/apiClient.ts)) e, em seguida,
-  `router.refresh()` para recarregar os dados do servidor.
-- O sorteio avulso não persiste nada: usa `executeGroupCrossDraw` no cliente.
+- Todas as mutações passam por Server Actions (6.4). Só a pista grava tempos pela
+  API (`PATCH /api/runs/:id/times` via [`src/lib/apiClient.ts`](../src/lib/apiClient.ts)),
+  para manter a fila de gravação e o aviso de sessão expirada.
+- O sorteio avulso não persiste nada: `quickDrawAction` roda `executeGroupCrossDraw` no servidor sobre atletas do escopo, e o PDF sai das corridas revisadas.
 
 ### 6.4 Server Actions
 
@@ -351,9 +350,8 @@ devolve `code: 'UNAUTHENTICATED'`.
 
 **Commands.** `owner.ts` (`resolveOwnerId`, `resolveCity`, `FORBIDDEN_MESSAGE`),
 `athletes.ts`, `arenas.ts`, `events.ts` e `shares.ts` concentram as regras de
-escrita. As actions e os handlers `/api` de POST/PATCH/DELETE de atletas,
-arenas e provas chamam os mesmos commands, então o comportamento é o mesmo;
-o JSON e os status de sucesso da API não mudaram.
+escrita. As actions chamam os commands; os endpoints REST antigos de cadastros,
+sorteio, publicação, usuários e relatórios foram removidos na fase 5.
 
 **Hook `useAction`** ([`src/lib/useAction.ts`](../src/lib/useAction.ts)):
 expõe `pending`, `message`, `fieldErrors`, `execute` e `reset`. Ignora uma
@@ -1487,8 +1485,8 @@ componentes próprios com React, Tailwind e Lucide.
 
 - [`AppShell`](../src/components/shell/AppShell.tsx): menu lateral, drawer
   mobile e logout; montado em `app/(app)/layout.tsx`.
-- `*Client.tsx` em cada rota: ligam os componentes de tela às rotas `/api`
-  e chamam `router.refresh()` após cada mutação.
+- `*Client.tsx` em cada rota: componentes client que chamam Server Actions via `useAction`
+  (a revalidação atualiza a tela); a pista (`TrackClient`) grava tempos pela rota `PATCH`.
 - [`/login`](../app/login/page.tsx): login, visualização da senha, mensagem
   de erro, solicitação de acesso e carregamento explícito do reCAPTCHA.
 
@@ -1692,9 +1690,9 @@ Aplicado em:
 
 ### Mutações
 
-1. o bridge da rota chama `/api/*` com `apiRequest`;
-2. em caso de erro, exibe um toast;
-3. em caso de sucesso, `router.refresh()` recarrega os dados da rota.
+1. o componente chama a Server Action pelo `useAction` (`runAction` no servidor);
+2. erro de formulário aparece no próprio formulário; ações soltas mostram toast;
+3. em caso de sucesso, `revalidatePath` atualiza os Server Components da rota.
 
 ### Logout
 

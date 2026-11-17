@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import { prisma } from '../../prisma';
 import { canManageUsers } from '../../permissions';
@@ -25,12 +26,20 @@ export async function reviewAccessRequest(actor: ScopeUser, id: string, input: {
   if (await prisma.user.findUnique({ where: { email: request.email }, select: { id: true } })) {
     throw new DomainError(USER_MESSAGES.duplicate, { status: 409 });
   }
-  await prisma.$transaction([
+  try {
+    await prisma.$transaction([
     prisma.user.create({
       data: { name: request.name, email: request.email, passwordHash: await hash(input.password, 12), role: 'USER', provisional: true, active: false, managedById: actor.id },
     }),
     prisma.accessRequest.update({ where: { id }, data: reviewed }),
   ]);
+  } catch (error) {
+    // Duas aprovações simultâneas (ou e-mail criado no meio): a unicidade do e-mail vira 409.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw new DomainError(USER_MESSAGES.duplicate, { status: 409 });
+    }
+    throw error;
+  }
 }
 
 export const listPendingAccessRequests = () =>
