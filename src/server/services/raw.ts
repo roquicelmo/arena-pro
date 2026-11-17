@@ -18,7 +18,7 @@ const registrationInclude = {
 // Consultas brutas (formato Prisma) usadas pelos handlers de /api (pages router).
 // Ficam sem 'server-only', que não carrega fora do bundle de Server Components.
 
-/** Atletas ativos com dono, no formato bruto do Prisma (usado pelo GET /api/athletes). */
+/** Atletas ativos com dono, no formato bruto do Prisma (services de atletas e telas). */
 export const findAthletesRaw = (user: ScopeUser, opts: { ownerId?: string } = {}) =>
   prisma.athlete.findMany({
     where: { active: true, ...accessScope(user, opts.ownerId) },
@@ -26,14 +26,14 @@ export const findAthletesRaw = (user: ScopeUser, opts: { ownerId?: string } = {}
     orderBy: { name: 'asc' },
   });
 
-/** Arenas ativas no formato bruto do Prisma (usado pelo GET /api/arenas). */
+/** Arenas ativas no formato bruto do Prisma (service de arenas). */
 export const findArenasRaw = (user: ScopeUser, opts: { ownerId?: string } = {}) =>
   prisma.arena.findMany({
     where: { active: true, ...accessScope(user, opts.ownerId) },
     orderBy: [{ name: 'asc' }, { city: 'asc' }],
   });
 
-/** Provas no formato bruto do Prisma (usado pelo GET /api/events). */
+/** Provas no formato bruto do Prisma (service de provas). */
 export const findEventsRaw = (user: ScopeUser, opts: { ownerId?: string } = {}) => {
   const where = eventScope(user, opts.ownerId);
   return prisma.event.findMany({
@@ -43,14 +43,14 @@ export const findEventsRaw = (user: ScopeUser, opts: { ownerId?: string } = {}) 
   });
 };
 
-/** Usuários no formato bruto (usado pelo GET /api/users; o handler valida o papel). */
+/** Usuários no formato bruto (página /usuarios, que exige MANAGER_ROLES). */
 export const findUsersRaw = () =>
   prisma.user.findMany({
     select: { id: true, name: true, email: true, role: true, active: true, provisional: true, accessExpiresAt: true, lastLoginAt: true, createdAt: true, managedById: true },
     orderBy: [{ active: 'desc' }, { name: 'asc' }],
   });
 
-/** Sorteios da prova, mais recente primeiro, no formato bruto (usado pelo GET /api/events/[eventId]/draws). */
+/** Sorteios da prova, mais recente primeiro, no formato bruto (services de sorteio). */
 export const findDrawsRaw = (eventId: string, opts: { take?: number } = {}) =>
   prisma.draw.findMany({
     where: { eventId },
@@ -68,7 +68,7 @@ export const findDrawsRaw = (eventId: string, opts: { take?: number } = {}) =>
     ...(opts.take ? { take: opts.take } : {}),
   });
 
-/** Inscrições ativas no formato bruto (usado pelo GET /api/events/[eventId]/registrations). */
+/** Inscrições ativas no formato bruto (services de inscrições e sorteio). */
 export const findRegistrationsRaw = (eventId: string) =>
   prisma.eventRegistration.findMany({
     where: { eventId, status: 'ACTIVE' },
