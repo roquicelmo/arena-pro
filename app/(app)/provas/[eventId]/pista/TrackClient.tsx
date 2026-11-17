@@ -2,17 +2,18 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { RunsTable } from '../../../../../src/components/RunsTable';
+import { TrackBoard } from '../../../../../src/components/track/TrackBoard';
+import { createSerialQueue } from '../../../../../src/lib/serialQueue';
 import { toast, useConfirm } from '../../../../../src/components/ui';
 import { apiRequest, SessionExpiredError } from '../../../../../src/lib/apiClient';
-import type { DrawConfig, Run } from '../../../../../src/types/roping';
+import type { Run } from '../../../../../src/types/roping';
 import { calculateRunTotal } from '../../../../../src/utils/drawAlgorithm';
 import { trackSave, useFreshServerData } from '../useFreshServerData';
 
 interface TrackClientProps {
-  eventId: string;
   runs: Run[];
-  config: DrawConfig;
+  /** Resultado publicado: campos bloqueados. */
+  locked?: boolean;
 }
 
 type Bull = 1 | 2 | 3;
@@ -45,27 +46,41 @@ const withTime = (run: Run, boi: Bull, value: string, isNt?: boolean): Run => {
 const hasAnyTime = (run: Run) =>
   Boolean(run.times.boi1 || run.times.boi2 || run.times.boi3 || run.times.boi1Nt || run.times.boi2Nt || run.times.boi3Nt);
 
+/** Gravações do mesmo boi saem em série, na ordem da digitação (o banco fica com o último valor). */
+const enqueueSave = createSerialQueue();
+
 const patchTime = (runId: string, bullNumber: number, timeSeconds: number | null, isNt: boolean) =>
-  trackSave(apiRequest(`/api/runs/${runId}/times`, {
+  trackSave(enqueueSave(`${runId}:${bullNumber}`, () => apiRequest(`/api/runs/${runId}/times`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ bullNumber, timeSeconds, isNt }),
-  }, SAVE_ERROR));
+    // keepalive: a gravação termina mesmo se a aba fechar logo depois (pagehide).
+    keepalive: true,
+  }, SAVE_ERROR)));
 
-export function TrackClient({ eventId, runs: initialRuns, config }: TrackClientProps) {
+/** Envio direto (sem fila) para o fechamento da aba: com keepalive, sobrevive ao descarregamento. */
+const sendNow = (runId: string, bullNumber: number, timeSeconds: number | null, isNt: boolean) => {
+  void fetch(`/api/runs/${runId}/times`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bullNumber, timeSeconds, isNt }),
+    keepalive: true,
+  }).catch(() => undefined);
+};
+
+export function TrackClient({ runs: initialRuns, locked = false }: TrackClientProps) {
   const router = useRouter();
   const confirm = useConfirm();
   const [runs, setRuns] = useState(initialRuns);
   const [seed, setSeed] = useState(initialRuns);
   /** Tempos editados aqui que ainda não terminaram de gravar. */
   const [unsaved, setUnsaved] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const runsRef = useRef(runs);
   /** Instante do refresh pedido ao montar (0 = nenhum pendente) e da última edição local. */
   const mountRefreshAt = useRef(0);
   const lastEditAt = useRef(0);
-  const pendingSaves = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; run: () => void }>());
+  const pendingSaves = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; run: () => void; sendOnUnload: () => void }>());
   const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Dados novos do servidor (router.refresh, voltar/avançar): ressincroniza o estado
@@ -86,16 +101,30 @@ export function TrackClient({ eventId, runs: initialRuns, config }: TrackClientP
     mountRefreshAt.current = Date.now();
   });
 
-  // Ao sair da tela, grava imediatamente o que ainda estava aguardando.
+  // Ao sair da tela (navegação ou fechar a aba), grava imediatamente o que ainda estava aguardando.
   useEffect(() => {
     const saves = pendingSaves.current;
     const timer = statusTimer;
-    return () => {
+    // Navegação dentro do app: o app continua vivo, então a fila em série vale.
+    const flush = () => {
       for (const { timer: pending, run } of saves.values()) {
         clearTimeout(pending);
         run();
       }
       saves.clear();
+    };
+    // Fechar a aba: só o último valor de cada boi está pendente; vai direto, com keepalive.
+    const flushOnUnload = () => {
+      for (const { timer: pending, sendOnUnload } of saves.values()) {
+        clearTimeout(pending);
+        sendOnUnload();
+      }
+      saves.clear();
+    };
+    window.addEventListener('pagehide', flushOnUnload);
+    return () => {
+      window.removeEventListener('pagehide', flushOnUnload);
+      flush();
       if (timer.current) clearTimeout(timer.current);
     };
   }, []);
@@ -117,6 +146,9 @@ export function TrackClient({ eventId, runs: initialRuns, config }: TrackClientP
         toast.error(SESSION_EXPIRED_ERROR, { id: 'session-expired', duration: Infinity });
       } else {
         toast.error(error instanceof Error ? error.message : SAVE_ERROR);
+        // Recusado (ex.: resultado publicado, versão antiga): volta a tela ao que está no banco.
+        mountRefreshAt.current = 0;
+        router.refresh();
       }
       return;
     } finally {
@@ -125,7 +157,7 @@ export function TrackClient({ eventId, runs: initialRuns, config }: TrackClientP
     showSaved();
   };
 
-  const schedule = (key: string, delay: number, run: () => void) => {
+  const schedule = (key: string, delay: number, run: () => void, sendOnUnload: () => void) => {
     const saves = pendingSaves.current;
     const existing = saves.get(key);
     if (existing) clearTimeout(existing.timer);
@@ -134,7 +166,7 @@ export function TrackClient({ eventId, runs: initialRuns, config }: TrackClientP
       saves.delete(key);
       run();
     }, delay);
-    saves.set(key, { timer, run });
+    saves.set(key, { timer, run, sendOnUnload });
   };
 
   // Lógica movida de `handleUpdateTime` do App.tsx: atualiza a corrida na hora e grava no banco.
@@ -152,7 +184,7 @@ export function TrackClient({ eventId, runs: initialRuns, config }: TrackClientP
     if (timeSeconds !== null && !Number.isFinite(timeSeconds)) return;
     const nt = isNt ?? ntOf(currentRun, boi);
     // NT e limpar gravam na hora; digitação espera a pausa.
-    schedule(`${runId}:${boi}`, isNt === undefined ? SAVE_DELAY_MS : 0, () => void persist(runId, boi, timeSeconds, nt));
+    schedule(`${runId}:${boi}`, isNt === undefined ? SAVE_DELAY_MS : 0, () => void persist(runId, boi, timeSeconds, nt), () => sendNow(runId, boi, timeSeconds, nt));
   };
 
   const onClearAllTimes = async () => {
@@ -193,20 +225,10 @@ export function TrackClient({ eventId, runs: initialRuns, config }: TrackClientP
     toast.success('Tempos limpos.');
   };
 
-  const goToDraw = () => router.push(`/provas/${eventId}/sorteio`);
 
   return (
     <>
-      <RunsTable
-        runs={runs}
-        config={config}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        onReDraw={goToDraw}
-        onBackToConfig={goToDraw}
-        onUpdateTime={onUpdateTime}
-        onClearAllTimes={() => void onClearAllTimes()}
-      />
+      <TrackBoard runs={runs} locked={locked} onUpdateTime={onUpdateTime} onClearAllTimes={() => void onClearAllTimes()} />
       <p
         role="status"
         aria-live="polite"

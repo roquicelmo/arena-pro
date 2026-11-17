@@ -1,39 +1,27 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ResultsPage } from '../../../../../src/components/ResultsPage';
-import { toast } from '../../../../../src/components/ui';
-import { apiRequest } from '../../../../../src/lib/apiClient';
+import { ResultsBoard } from '../../../../../src/components/results/ResultsBoard';
+import { useConfirm } from '../../../../../src/components/ui';
+import { useAction } from '../../../../../src/lib/useAction';
+import { publishResultsAction } from '../../../../../src/server/actions/results';
 import type { EventSummary } from '../../../../../src/types/events';
 import type { Run } from '../../../../../src/types/roping';
 import { useFreshServerData } from '../useFreshServerData';
 
-interface ResultsClientProps {
-  event: EventSummary;
-  runs: Run[];
-  published: boolean;
-}
-
-export function ResultsClient({ event, runs, published }: ResultsClientProps) {
-  const router = useRouter();
+export function ResultsClient({ event, runs, published }: { event: EventSummary; runs: Run[]; published: boolean }) {
   useFreshServerData();
-  const [pending, setPending] = useState(false);
+  const confirm = useConfirm();
+  const publish = useAction(() => publishResultsAction(event.id), { successMessage: 'Resultado publicado.', toastErrors: true });
 
   const onPublish = async () => {
-    if (pending) return;
-    setPending(true);
-    try {
-      await apiRequest(`/api/events/${event.id}/results/publish`, { method: 'POST' }, 'Não foi possível publicar os resultados.');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Não foi possível publicar os resultados.');
-      setPending(false);
-      return;
-    }
-    toast.success('Resultados publicados.');
-    setPending(false);
-    router.refresh();
+    const ok = await confirm({
+      title: 'Publicar o resultado?',
+      description: 'A prova será finalizada: os tempos não poderão mais ser alterados e o sorteio não poderá ser refeito.',
+      confirmLabel: 'Publicar resultado',
+      cancelLabel: 'Ainda não',
+    });
+    if (ok) await publish.execute(undefined);
   };
 
-  return <ResultsPage event={event} runs={runs} published={published} onPublish={() => void onPublish()} />;
+  return <ResultsBoard event={event} runs={runs} published={published} publishing={publish.pending} onPublish={() => void onPublish()} />;
 }

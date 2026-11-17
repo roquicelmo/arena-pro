@@ -44,6 +44,8 @@ export async function generateDraw(user: ScopeUser, eventId: string, config: Dra
   const event = await findScopedEvent(user, eventId);
   try {
     return await prisma.$transaction(async (tx) => {
+      // Mesma trava de linha do lançamento de tempos: refazer e gravar tempo não se cruzam.
+      await tx.$executeRaw`SELECT 1 FROM "Event" WHERE id = ${eventId} FOR UPDATE`;
       const lock = await lockFor(tx, event);
       if (lock.locked) throw new DomainError(DRAW_LOCK_MESSAGES[lock.reason], { status: 409 });
 
