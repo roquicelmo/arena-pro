@@ -1,7 +1,9 @@
-import { z } from 'zod';
 import { getAuthenticatedUser } from '../../../../auth';
-import { prisma } from '../../../../prisma';
+import { OPERATOR_ROLES } from '../../../../permissions';
 import { findRegistrationsRaw } from '../../../../services/raw';
+import { findScopedEvent, registerAthlete } from '../../../../services/commands/registrations';
+import { registrationSchema } from '../../../../../lib/schemas/draws';
+import { respondDomainError } from '../../../domain-error';
 
 interface VercelRequest {
   method?: string;
@@ -15,11 +17,6 @@ interface VercelResponse {
   json: (body: unknown) => void;
 }
 
-const registrationInput = z.object({
-  athleteId: z.string().trim().min(1),
-  category: z.enum(['CABECEIRO', 'PEZEIRO']),
-});
-
 const toHeaders = (input: VercelRequest['headers']) => {
   const headers = new Headers();
   for (const [name, value] of Object.entries(input)) {
@@ -29,58 +26,27 @@ const toHeaders = (input: VercelRequest['headers']) => {
   return headers;
 };
 
-const canManageRegistrations = (role: string) => ['ADMIN', 'MANAGER', 'ORGANIZER', 'USER'].includes(role);
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const user = await getAuthenticatedUser(toHeaders(req.headers));
   if (!user) return res.status(401).json({ message: 'É necessário estar autenticado.' });
-  if (!canManageRegistrations(user.role)) {
+  if (!(OPERATOR_ROLES as readonly string[]).includes(user.role)) {
     return res.status(403).json({ message: 'Seu perfil não pode gerenciar inscrições.' });
   }
-
   const eventId = typeof req.query?.eventId === 'string' ? req.query.eventId : '';
   if (!eventId) return res.status(400).json({ message: 'Identificador da prova é obrigatório.' });
 
-  const event = await prisma.event.findUnique({ where: { id: eventId }, select: { id: true } });
-  if (!event) return res.status(404).json({ message: 'Prova não encontrada.' });
-  const owner = await prisma.event.findUnique({ where: { id: eventId }, select: { createdById: true } });
-  if (user.role === 'USER' && owner?.createdById !== user.id) return res.status(404).json({ message: 'Prova não encontrada.' });
-
-  if (req.method === 'GET') {
-    const registrations = await findRegistrationsRaw(eventId);
-    return res.status(200).json(registrations);
+  try {
+    if (req.method === 'GET') {
+      await findScopedEvent(user, eventId);
+      return res.status(200).json(await findRegistrationsRaw(eventId));
+    }
+    if (req.method !== 'POST') return res.status(405).json({ message: 'Método não permitido.' });
+    const parsed = registrationSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: 'Dados da inscrição inválidos.', issues: parsed.error.flatten() });
+    }
+    return res.status(201).json(await registerAthlete(user, eventId, parsed.data));
+  } catch (error) {
+    return respondDomainError(res, error);
   }
-
-  if (req.method !== 'POST') return res.status(405).json({ message: 'Método não permitido.' });
-
-  const parsed = registrationInput.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ message: 'Dados da inscrição inválidos.', issues: parsed.error.flatten() });
-  }
-
-  const athlete = await prisma.athlete.findFirst({
-    where: { id: parsed.data.athleteId, active: true },
-    select: { id: true },
-  });
-  if (!athlete) return res.status(404).json({ message: 'Atleta não encontrado ou inativo.' });
-
-  const existing = await prisma.eventRegistration.findUnique({
-    where: { eventId_athleteId: { eventId, athleteId: parsed.data.athleteId } },
-  });
-  if (existing?.status === 'ACTIVE') {
-    return res.status(409).json({ message: 'Este atleta já está inscrito nesta prova.' });
-  }
-
-  const registration = existing
-    ? await prisma.eventRegistration.update({
-        where: { id: existing.id },
-        data: { category: parsed.data.category, status: 'ACTIVE', cancelledAt: null, registeredAt: new Date() },
-        include: { athlete: true },
-      })
-    : await prisma.eventRegistration.create({
-        data: { eventId, athleteId: parsed.data.athleteId, category: parsed.data.category },
-        include: { athlete: true },
-      });
-
-  return res.status(201).json(registration);
 }

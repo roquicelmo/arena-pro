@@ -2,21 +2,24 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Users } from 'lucide-react';
 import { EmptyState } from '../../../../../src/components/ui';
-import { getEventRegistrations, getLatestDraw } from '../../../../../src/server/services/draws';
+import { getDrawLock } from '../../../../../src/server/services/commands/draws';
+import { getEventRegistrations, getLatestDraw, getLatestDrawVersion } from '../../../../../src/server/services/draws';
 import { loadEvent } from '../loadEvent';
 import { DrawClient } from './DrawClient';
 
 export default async function EventDrawPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const { user, event } = await loadEvent(eventId);
-  const [registrations, latestDraw] = await Promise.all([
+  const [registrations, latestDraw, version, lock] = await Promise.all([
     getEventRegistrations(user, event.id),
     getLatestDraw(user, event.id),
+    getLatestDrawVersion(event.id),
+    getDrawLock(user, event.id),
   ]);
   if (!registrations || !latestDraw) notFound();
   const { cabeceiros, pezeiros } = registrations;
 
-  if (!cabeceiros.length || !pezeiros.length) {
+  if ((!cabeceiros.length || !pezeiros.length) && !latestDraw.runs.length) {
     return (
       <EmptyState
         icon={Users}
@@ -34,5 +37,15 @@ export default async function EventDrawPage({ params }: { params: Promise<{ even
     );
   }
 
-  return <DrawClient eventId={event.id} cabeceiros={cabeceiros} pezeiros={pezeiros} initialConfig={latestDraw.configuration} />;
+  return (
+    <DrawClient
+      eventId={event.id}
+      cabeceiros={cabeceiros}
+      pezeiros={pezeiros}
+      initialConfig={latestDraw.configuration}
+      runs={latestDraw.runs}
+      version={version}
+      lockReason={lock.locked ? lock.reason : null}
+    />
+  );
 }

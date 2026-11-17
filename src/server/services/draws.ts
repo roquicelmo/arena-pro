@@ -46,3 +46,24 @@ export const getEventRegistrations = async (
     pezeiros: registrations.filter((r) => r.category === 'PEZEIRO').map((r) => toCompetitor(r.athlete, 'heel')),
   };
 };
+
+export interface EventRegistrationItem {
+  registrationId: string;
+  category: 'CABECEIRO' | 'PEZEIRO';
+  athlete: Competitor;
+}
+
+/** Inscrições ativas com o id da inscrição (para cancelar). Fora do escopo: null. */
+export const listEventRegistrations = async (user: ScopeUser, eventId: string): Promise<EventRegistrationItem[] | null> => {
+  if (!(await isInScope(user, eventId))) return null;
+  const registrations = await findRegistrationsRaw(eventId);
+  return registrations.map((r) => ({
+    registrationId: r.id,
+    category: r.category as EventRegistrationItem['category'],
+    athlete: toCompetitor(r.athlete, r.category === 'PEZEIRO' ? 'heel' : 'head'),
+  }));
+};
+
+/** Versão vigente do sorteio (ou null sem sorteio). */
+export const getLatestDrawVersion = async (eventId: string): Promise<number | null> =>
+  (await prisma.draw.findFirst({ where: { eventId }, orderBy: { version: 'desc' }, select: { version: true } }))?.version ?? null;

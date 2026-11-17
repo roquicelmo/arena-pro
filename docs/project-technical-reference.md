@@ -300,7 +300,8 @@ O `src/App.tsx` foi removido: cada seção é uma rota App Router.
 | `/provas` | Lista de provas e arenas |
 | `/provas/[eventId]` | Detalhes da prova |
 | `/provas/[eventId]/inscricoes` | Inscrições |
-| `/provas/[eventId]/sorteio` | Configuração e geração do sorteio |
+| `/provas/[eventId]/sorteio` | Configuração, geração (ou refazer) e revisão do sorteio; link da súmula |
+| `/provas/[eventId]/sorteio/sumula.pdf` | Súmula de pista em PDF (GET, Route Handler) |
 | `/provas/[eventId]/pista` | Pista e lançamento de tempos |
 | `/provas/[eventId]/locucao` | Locução |
 | `/provas/[eventId]/resultado` | Resultados e publicação |
@@ -309,7 +310,8 @@ O `src/App.tsx` foi removido: cada seção é uma rota App Router.
 | `/cadastros` | Compartilhar atletas e arenas e trocar o responsável das provas (gerentes) |
 | `/relatorios` | Relatórios |
 | `/usuarios` | Usuários (perfis de gestão) |
-| `/sorteio-avulso` | Sorteio rápido, só em memória |
+| `/sorteio-avulso` | Sorteio sem prova em etapas (participantes → configuração → revisão → PDF), nada é salvo |
+| `/sorteio-avulso/sumula.pdf` | PDF do sorteio avulso (POST com as corridas revisadas) |
 
 ### 6.2 Layout e sessão
 
@@ -515,12 +517,24 @@ POST   /api/events/:eventId/registrations
 DELETE /api/events/:eventId/registrations/:registrationId
 ```
 
+Regras (command `src/server/services/commands/registrations.ts`, também usado pelas Server Actions):
+
+- a prova segue o escopo de prova (`eventScope`);
+- o atleta precisa estar ativo e pertencer ao **dono da prova** ou estar compartilhado com ele (`accessScope` do dono);
+- inscrição ativa repetida → 409; inscrição cancelada é reativada.
+
 ### 8.7 Sorteios
 
 ```text
 GET  /api/events/:eventId/draws
 POST /api/events/:eventId/draws
 ```
+
+Regras (command `src/server/services/commands/draws.ts`):
+
+- a geração roda em `prisma.$transaction`: trava, próxima `version`, `Draw` + `Run` e prova em `DRAWN`; colisão de versão (`P2002`) → 409 "Outro sorteio foi gerado ao mesmo tempo";
+- **refazer** é livre até o primeiro `RunTime` da versão atual ou até a publicação (`FINISHED`/`publishedAt`); depois → 409, e a tela desabilita o botão com a explicação;
+- o GET usa o mesmo escopo de prova (VIEWER vê só as próprias).
 
 ### 8.8 Tempos de pista
 
@@ -1750,10 +1764,11 @@ Gerencia:
 
 Componentes:
 
-- [`DrawConfiguration.tsx`](../src/components/DrawConfiguration.tsx);
-- [`TransferList.tsx`](../src/components/TransferList.tsx);
-- [`WizardHeader.tsx`](../src/components/WizardHeader.tsx);
-- [`RunsTable.tsx`](../src/components/RunsTable.tsx).
+- [`draw/DrawSetup.tsx`](../src/components/draw/DrawSetup.tsx) — grupos, baterias (com recomendação de [`drawPlanning.ts`](../src/lib/drawPlanning.ts)), regras e resumo;
+- [`draw/DrawReview.tsx`](../src/components/draw/DrawReview.tsx) — corridas por bateria, só leitura;
+- [`registrations/RegistrationsView.tsx`](../src/components/registrations/RegistrationsView.tsx) — inscrições;
+- [`quick-draw/QuickDrawWizard.tsx`](../src/components/quick-draw/QuickDrawWizard.tsx) e `ParticipantPicker.tsx` — sorteio avulso;
+- [`RunsTable.tsx`](../src/components/RunsTable.tsx) — pista (refatorado na fase 4).
 
 ### Locução
 
@@ -1858,9 +1873,25 @@ Resultados:
 
 ## 27. Impressão e PDF
 
-O sistema não utiliza uma biblioteca adicional de PDF.
+### Súmula em PDF
 
-Usa:
+A súmula de pista (prova) e o PDF do sorteio avulso são gerados no servidor com
+`@react-pdf/renderer` ([`SumulaDocument.tsx`](../src/server/pdf/SumulaDocument.tsx)):
+
+- A4 retrato, 28 linhas por página ([`paginateSumula`](../src/lib/sumula.ts)); faixa
+  "Bateria N · Cabeceiros X × Pezeiros Y · Corridas a–b" (só "Bateria N · Corridas a–b"
+  e coluna "Grupos" quando há cruzamentos misturados), repetida como "(continuação)";
+- cabeçalho em toda página (rótulo, título, data/arena ou local, versão, total, "Página X de Y");
+- caixas T1/T2/T3/Total em branco, bois além do sorteado hachurados;
+- rodapé "Arena Pro · gerado em …" e "Assinatura do juiz"; Barlow/Barlow Condensed
+  embutidas (`src/server/pdf/fonts`, licença OFL), só preto e cinzas;
+- a prova usa o sorteio mais recente; sem sorteio → 404 com mensagem;
+- o avulso recebe as corridas já revisadas, confere os atletas no escopo do usuário e
+  relê nomes/handicaps do banco (não re-sorteia).
+
+### Impressão pelo navegador
+
+Relatórios e resultados ainda usam:
 
 ```ts
 window.print()
