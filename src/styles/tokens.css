@@ -18,7 +18,7 @@
   --color-accent-hover: #87530c;
   /* Texto pequeno dourado sobre areia/superfície (5,7:1 e 6,2:1); o acento puro só em texto grande e ícones. */
   --color-accent-ink: #8a540c;
-  /* Texto sobre acento/perigo (não usar text-white: a camada legada o sobrescreve). */
+  /* Texto sobre acento/perigo (use text-on-accent, não text-white, para manter o token). */
   --color-on-accent: #ffffff;
   --color-accent-soft: #f5e9d4;
   --color-highlight: #f3e3cf;

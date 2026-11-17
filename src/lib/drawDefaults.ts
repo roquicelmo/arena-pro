@@ -10,7 +10,7 @@ export const DEFAULT_DRAW_CONFIG: DrawConfig = {
   numBatteries: 9,
 };
 
-// Mesmos limites da rota POST /api/events/[id]/draws.
+// Mesmos limites do drawConfigSchema (src/lib/schemas/draws.ts).
 const FIELDS = {
   numGroups: z.number().int().min(2).max(8),
   minGap: z.number().int().min(0).max(100),

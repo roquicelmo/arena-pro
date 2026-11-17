@@ -189,17 +189,8 @@ src/
     records/                  # RecordsManager, ShareDialog, ReassignDialog
     locations/                # CityPicker (UF + cidade do IBGE)
     filters/                  # OwnerFilter
-    AnnouncerPage.tsx
     Dashboard.tsx
-    DrawConfiguration.tsx
     EventDetailsPage.tsx
-    RegistrationPage.tsx
-    ReportsPage.tsx
-    ResultsPage.tsx
-    RunsTable.tsx
-    TransferList.tsx
-    UsersPage.tsx
-    WizardHeader.tsx
 
   data/
     referenceAthletes.ts
@@ -224,7 +215,7 @@ src/
     actions/                  # Server Actions (runAction + athletes, arenas, events, shares)
     routes/
     services/                 # leitura de dados para os Server Components
-      commands/               # escrita compartilhada por actions e /api
+      commands/               # regras de escrita (usadas pelas actions e pelas 2 rotas /api restantes)
       localities.ts
       records.ts
 
@@ -331,11 +322,10 @@ cada `page.tsx` também chama `requireUser()`
   que aplicam o escopo por papel e proprietário.
 - Os componentes de tela continuam Client Components e recebem os dados por
   props, por meio de "bridges" (`*Client.tsx`) em cada rota.
-- Cadastros (atletas, arenas, provas e compartilhamento) mudam por Server
-  Actions (6.4). As demais telas ainda chamam `/api/*` com `apiRequest`
-  ([`src/lib/apiClient.ts`](../src/lib/apiClient.ts)) e, em seguida,
-  `router.refresh()` para recarregar os dados do servidor.
-- O sorteio avulso não persiste nada: usa `executeGroupCrossDraw` no cliente.
+- Todas as mutações passam por Server Actions (6.4). Só a pista grava tempos pela
+  API (`PATCH /api/runs/:id/times` via [`src/lib/apiClient.ts`](../src/lib/apiClient.ts)),
+  para manter a fila de gravação e o aviso de sessão expirada.
+- O sorteio avulso não persiste nada: `quickDrawAction` roda `executeGroupCrossDraw` no servidor sobre atletas do escopo, e o PDF sai das corridas revisadas.
 
 ### 6.4 Server Actions
 
@@ -360,9 +350,8 @@ devolve `code: 'UNAUTHENTICATED'`.
 
 **Commands.** `owner.ts` (`resolveOwnerId`, `resolveCity`, `FORBIDDEN_MESSAGE`),
 `athletes.ts`, `arenas.ts`, `events.ts` e `shares.ts` concentram as regras de
-escrita. As actions e os handlers `/api` de POST/PATCH/DELETE de atletas,
-arenas e provas chamam os mesmos commands, então o comportamento é o mesmo;
-o JSON e os status de sucesso da API não mudaram.
+escrita. As actions chamam os commands; os endpoints REST antigos de cadastros,
+sorteio, publicação, usuários e relatórios foram removidos na fase 5.
 
 **Hook `useAction`** ([`src/lib/useAction.ts`](../src/lib/useAction.ts)):
 expõe `pending`, `message`, `fieldErrors`, `execute` e `reset`. Ignora uma
@@ -386,256 +375,55 @@ trata falha de rede com "Sem conexão com o servidor" e, em
 fechar e `busy`, que impede Esc, fundo e "Fechar" durante o salvamento.
 Há um exemplo na vitrine `/dev/ui`.
 
-## 7. Arquitetura da API
+## 7. Arquitetura de dados e mutações
 
-### 7.1 Gateway de dados
+Desde a fase 5 da refatoração, **telas não chamam a API REST**: leem dados em Server Components
+(services em `src/server/services/*`) e alteram dados por **Server Actions** (`src/server/actions/*`),
+todas passando por `runAction` (sessão → papel → Zod → command → `revalidatePath`; retorno
+`ActionResult`). As regras de negócio ficam nos **commands** (`src/server/services/commands/*`, sem
+`server-only`), únicos responsáveis por escopo de dono, compartilhamento, travas e transações:
 
-O Next expõe:
+| Domínio | Command | Actions |
+| --- | --- | --- |
+| Atletas, notas, duplicados | `athletes.ts` | `actions/athletes.ts` |
+| Arenas | `arenas.ts` | `actions/arenas.ts` |
+| Provas | `events.ts` | `actions/events.ts` |
+| Inscrições | `registrations.ts` | `actions/draws.ts` |
+| Sorteio (versão em transação, trava de refazer), sorteio avulso | `draws.ts` | `actions/draws.ts` |
+| Tempos (transação + `FOR UPDATE` na prova) | `times.ts` | — (rota `PATCH`, abaixo) |
+| Publicação de resultado | `results.ts` | `actions/results.ts` |
+| Compartilhamento e responsável de provas | `shares.ts` | `actions/shares.ts` |
+| Usuários e solicitações de acesso | `users.ts`, `accessRequests.ts` | `actions/users.ts` |
 
-```text
-pages/api/[...path].ts
-```
+Leitura: `services/athletes.ts`, `arenas.ts`, `events.ts`, `draws.ts`, `records.ts`, `reports.ts`,
+`localities.ts`, `users.ts` (escopo por `eventScope`/`accessScope`/`ownerScope` em `services/scope.ts`).
 
-Esse arquivo delega para:
+## 8. Rotas HTTP restantes
 
-```text
-src/server/next-data-gateway.ts
-```
+`pages/api/[...path].ts` → [`next-data-gateway.ts`](../src/server/next-data-gateway.ts) atende só os
+endpoints que ainda têm consumidor; qualquer outro caminho responde 404:
 
-O gateway transforma o caminho público em um handler de domínio.
+| Rota | Uso | Regras |
+| --- | --- | --- |
+| `/api/auth/*` | Auth.js (login, sessão, CSRF, logout) | — |
+| `POST /api/access-requests` | formulário público "Ainda não tenho acesso" | reCAPTCHA v3 (`access_request`, nota ≥ 0,5); pendente duplicada → 409 |
+| `PATCH /api/runs/:runId/times` | lançamento de tempos da pista (fila em série, `keepalive`) | command `times.ts`: User nas próprias provas, NT gravado sem tempo, versão antiga/publicada → 409 |
 
-Exemplo:
+Route Handlers do App Router:
 
-```text
-/api/athletes
-    ↓
-route = athletes
-    ↓
-src/server/routes/athletes/index.ts
-```
+| Rota | Uso |
+| --- | --- |
+| `GET /provas/[eventId]/sorteio/sumula.pdf` | súmula de pista em PDF (escopo da prova; sem sorteio → 404) |
+| `POST /sorteio-avulso/sumula.pdf` | PDF do sorteio avulso (atletas conferidos no escopo; não re-sorteia) |
 
-Outro exemplo:
+## 9. Regras de usuários e solicitações
 
-```text
-/api/events/abc123/registrations
-    ↓
-route = registrations
-eventId = abc123
-    ↓
-src/server/routes/events/[eventId]/registrations/index.ts
-```
-
-### 7.2 Handlers de domínio
-
-Os handlers ficam em:
-
-- [src/server/routes/athletes/](../src/server/routes/athletes/);
-- [src/server/routes/arenas/](../src/server/routes/arenas/);
-- [src/server/routes/events/](../src/server/routes/events/);
-- [src/server/routes/users/](../src/server/routes/users/);
-- [src/server/routes/reports/](../src/server/routes/reports/);
-- [src/server/routes/runs/](../src/server/routes/runs/);
-- [src/server/routes/access-requests/](../src/server/routes/access-requests/).
-
-Todos os handlers:
-
-1. recebem método, query, headers e body;
-2. verificam autenticação quando necessário;
-3. validam permissões;
-4. validam payload com Zod quando aplicável;
-5. consultam ou alteram o Prisma;
-6. retornam JSON e status HTTP explícitos.
-
-### 7.3 Auth.js
-
-Os arquivos de autenticação são:
-
-- [pages/api/auth/[...path].ts](../pages/api/auth/[...path].ts);
-- [pages/api/auth/callback/[provider].ts](../pages/api/auth/callback/[provider].ts);
-- [src/server/next-auth-handler.ts](../src/server/next-auth-handler.ts);
-- [src/server/auth.ts](../src/server/auth.ts);
-- [src/auth/session.ts](../src/auth/session.ts).
-
-Não há mais rewrites de API em `vercel.json`.
-
-## 8. Rotas da API
-
-### 8.1 Autenticação
-
-```text
-GET  /api/auth/csrf
-GET  /api/auth/session
-POST /api/auth/callback/credentials
-POST /api/auth/signout
-```
-
-### 8.2 Solicitações de acesso
-
-```text
-POST  /api/access-requests
-GET   /api/access-requests
-PATCH /api/access-requests
-```
-
-### 8.3 Atletas
-
-```text
-GET    /api/athletes
-POST   /api/athletes
-GET    /api/athletes/:id
-PATCH  /api/athletes/:id
-DELETE /api/athletes/:id
-```
-
-### 8.4 Arenas
-
-```text
-GET    /api/arenas
-POST   /api/arenas
-GET    /api/arenas/:id
-PATCH  /api/arenas/:id
-DELETE /api/arenas/:id
-```
-
-Exclusões de arenas são tratadas como desativação lógica quando aplicável.
-
-### 8.5 Provas
-
-```text
-GET    /api/events
-POST   /api/events
-GET    /api/events/:eventId
-PATCH  /api/events/:eventId
-DELETE /api/events/:eventId
-```
-
-### 8.6 Inscrições
-
-```text
-GET    /api/events/:eventId/registrations
-POST   /api/events/:eventId/registrations
-DELETE /api/events/:eventId/registrations/:registrationId
-```
-
-Regras (command `src/server/services/commands/registrations.ts`, também usado pelas Server Actions):
-
-- a prova segue o escopo de prova (`eventScope`);
-- o atleta precisa estar ativo e pertencer ao **dono da prova** ou estar compartilhado com ele (`accessScope` do dono);
-- inscrição ativa repetida → 409; inscrição cancelada é reativada.
-
-### 8.7 Sorteios
-
-```text
-GET  /api/events/:eventId/draws
-POST /api/events/:eventId/draws
-```
-
-Regras (command `src/server/services/commands/draws.ts`):
-
-- a geração roda em `prisma.$transaction`: trava, próxima `version`, `Draw` + `Run` e prova em `DRAWN`; colisão de versão (`P2002`) → 409 "Outro sorteio foi gerado ao mesmo tempo";
-- **refazer** é livre até o primeiro `RunTime` da versão atual ou até a publicação (`FINISHED`/`publishedAt`); depois → 409, e a tela desabilita o botão com a explicação;
-- o GET usa o mesmo escopo de prova (VIEWER vê só as próprias).
-
-### 8.8 Tempos de pista
-
-```text
-PATCH /api/runs/:runId/times
-```
-
-### 8.9 Resultados
-
-```text
-POST /api/events/:eventId/results/publish
-```
-
-### 8.10 Usuários
-
-```text
-GET    /api/users
-POST   /api/users
-GET    /api/users/:id
-PATCH  /api/users/:id
-DELETE /api/users/:id
-```
-
-### 8.11 Relatórios
-
-```text
-GET /api/reports/overview
-```
-
-## 9. Contratos principais da API
-
-### 9.1 Solicitação pública
-
-`POST /api/access-requests` recebe:
-
-```json
-{
-  "name": "Nome da pessoa",
-  "phone": "(00) 00000-0000",
-  "email": "usuario@example.com",
-  "recaptchaToken": "token-do-google"
-}
-```
-
-O servidor valida:
-
-- nome;
-- telefone;
-- e-mail;
-- token reCAPTCHA;
-- duplicidade de solicitação pendente.
-
-### 9.2 Criação de atleta
-
-O payload contém dados como:
-
-```json
-{
-  "name": "Nome do atleta",
-  "registrationNo": "123",
-  "nickname": "Apelido",
-  "phone": "(00) 00000-0000",
-  "email": "atleta@example.com",
-  "city": "Lagoa da Prata",
-  "state": "MG",
-  "headHandicap": 3,
-  "heelHandicap": 2,
-  "ownerId": "id-do-proprietario"
-}
-```
-
-### 9.3 Criação de arena
-
-```json
-{
-  "name": "Arena Lagoa",
-  "city": "Lagoa da Prata",
-  "state": "MG",
-  "address": "Endereço opcional",
-  "ownerId": "id-do-proprietario"
-}
-```
-
-### 9.4 Criação de prova
-
-Uma prova referencia uma arena e possui um usuário criador/proprietário.
-
-```json
-{
-  "name": "Prova de Novembro",
-  "eventDate": "2026-11-30T00:00:00.000Z",
-  "description": "Descrição opcional",
-  "arenaId": "id-da-arena",
-  "ownerId": "id-do-proprietario"
-}
-```
-
-### 9.5 Lançamento de tempos
-
-O endpoint de tempos recebe a corrida e a lista de ocorrências por boi. O
-servidor faz upsert, recalcula total/média e atualiza o status da corrida.
+- só `MANAGER_ROLES` acessam `/usuarios`; **criar, editar e excluir** (exclusão lógica) são do Admin;
+  Manager só ativa/desativa usuários provisórios; ninguém exclui a si mesmo;
+- aprovar solicitação exige senha inicial (8+) e cria `USER` provisório e inativo na mesma
+  transação da revisão; e-mail já cadastrado → 409; só solicitações pendentes são revisadas;
+- relatórios (`/relatorios`, filtros na URL `?dono=&status=&de=&ate=`): provas por `eventScope`,
+  atletas/arenas por `accessScope` (compartilhados contam); User ignora `dono` alheio.
 
 ## 10. Autenticação e sessão
 
@@ -1697,8 +1485,8 @@ componentes próprios com React, Tailwind e Lucide.
 
 - [`AppShell`](../src/components/shell/AppShell.tsx): menu lateral, drawer
   mobile e logout; montado em `app/(app)/layout.tsx`.
-- `*Client.tsx` em cada rota: ligam os componentes de tela às rotas `/api`
-  e chamam `router.refresh()` após cada mutação.
+- `*Client.tsx` em cada rota: componentes client que chamam Server Actions via `useAction`
+  (a revalidação atualiza a tela); a pista (`TrackClient`) grava tempos pela rota `PATCH`.
 - [`/login`](../app/login/page.tsx): login, visualização da senha, mensagem
   de erro, solicitação de acesso e carregamento explícito do reCAPTCHA.
 
@@ -1768,57 +1556,29 @@ Componentes:
 - [`draw/DrawReview.tsx`](../src/components/draw/DrawReview.tsx) — corridas por bateria, só leitura;
 - [`registrations/RegistrationsView.tsx`](../src/components/registrations/RegistrationsView.tsx) — inscrições;
 - [`quick-draw/QuickDrawWizard.tsx`](../src/components/quick-draw/QuickDrawWizard.tsx) e `ParticipantPicker.tsx` — sorteio avulso;
-- [`RunsTable.tsx`](../src/components/RunsTable.tsx) — pista (refatorado na fase 4).
+- [`track/TrackBoard.tsx`](../src/components/track/TrackBoard.tsx), `TrackRow.tsx` e `TimeCell.tsx` — pista: corrida atual, estatísticas,
+  busca/bateria, CSV e teclado (Enter avança, N marca NT, Esc desfaz).
 
 ### Locução
 
-[`AnnouncerPage.tsx`](../src/components/AnnouncerPage.tsx)
-
-Exibe:
-
-- corrida atual;
-- próxima corrida;
-- dupla;
-- bateria;
-- rodada;
-- progresso.
+[`announcer/AnnouncerBoard.tsx`](../src/components/announcer/AnnouncerBoard.tsx): corrida atual em destaque
+(primeira sem total e sem NT), próximas 5, últimas 5 e andamento. Atualiza sozinha a cada 3 s com a aba visível
+([`useAutoRefresh`](../src/lib/useAutoRefresh.ts)).
 
 ### Resultados
 
-[`ResultsPage.tsx`](../src/components/ResultsPage.tsx)
-
-Exibe:
-
-- classificação;
-- médias;
-- NTs;
-- pendências;
-- publicação;
-- impressão.
+[`results/ResultsBoard.tsx`](../src/components/results/ResultsBoard.tsx): pódio, classificação por menor média
+([`rankRuns`](../src/lib/ranking.ts)), NT e incompletas no fim, publicação com confirmação e impressão CSS.
 
 ### Usuários
 
-[`UsersPage.tsx`](../src/components/UsersPage.tsx)
-
-Gerencia:
-
-- lista de usuários;
-- solicitações pendentes;
-- aprovação;
-- recusa;
-- habilitação;
-- bloqueio.
+[`users/UsersView.tsx`](../src/components/users/UsersView.tsx), `UserFormDialog.tsx` e `AccessRequestsPanel.tsx`:
+lista com papel/status, criação e edição (Admin), ativação de provisórios (Manager) e revisão de solicitações.
 
 ### Relatórios
 
-[`ReportsPage.tsx`](../src/components/ReportsPage.tsx)
-
-Exibe:
-
-- totais;
-- filtros;
-- provas recentes;
-- impressão A4.
+Server Component em `app/(app)/relatorios/page.tsx` com [`ReportFilters`](../src/components/reports/ReportFilters.tsx)
+(filtros na URL), totais em `StatTile` e provas recentes; impressão CSS.
 
 ## 24. Algoritmo de sorteio
 
@@ -1930,9 +1690,9 @@ Aplicado em:
 
 ### Mutações
 
-1. o bridge da rota chama `/api/*` com `apiRequest`;
-2. em caso de erro, exibe um toast;
-3. em caso de sucesso, `router.refresh()` recarrega os dados da rota.
+1. o componente chama a Server Action pelo `useAction` (`runAction` no servidor);
+2. erro de formulário aparece no próprio formulário; ações soltas mostram toast;
+3. em caso de sucesso, `revalidatePath` atualiza os Server Components da rota.
 
 ### Logout
 
@@ -1971,8 +1731,8 @@ Foi validado:
 
 - `/api/auth/csrf` respondendo `200`;
 - `/api/auth/session` retornando `null` sem sessão;
-- `/api/athletes` bloqueando requisição sem autenticação;
-- `/api/reports/overview` bloqueando requisição sem autenticação.
+- endpoints REST removidos respondem 404 (`next-data-gateway`);
+- `PATCH /api/runs/:id/times` e `POST /api/access-requests` exigem sessão/reCAPTCHA conforme a seção 8.
 
 ### Navegador
 
@@ -2002,35 +1762,31 @@ Foi validado:
 
 ## 31. Pendências técnicas
 
-### Alta prioridade
+### Operação
 
-- publicar a correção de carregamento pós-login;
-- confirmar `AUTH_SECRET` no ambiente Production;
-- confirmar `DATABASE_URL`;
-- confirmar `DATABASE_URL_POOLED`;
-- configurar `VITE_RECAPTCHA_SITE_KEY`;
-- configurar `RECAPTCHA_SECRET_KEY`;
-- testar solicitação de acesso em produção;
-- criar contas separadas para Manager e User;
-- homologar criação, sorteio, tempos e publicação com uma prova de teste.
+- homologar uma prova completa em produção (inscrição → sorteio → súmula → pista → publicação);
+- adicionar `localhost` aos domínios da chave reCAPTCHA para testar o pedido de acesso localmente;
+- antes de promover deploys com migration nova, rodar `npm run db:deploy` (o build não migra).
 
-### Média prioridade
+### Endurecimento (fora do escopo da refatoração)
 
-- adicionar rate limiting;
-- proteger formulário público contra spam;
-- registrar auditoria de todas as mutações;
-- adicionar logs de autenticação;
-- adicionar observabilidade;
-- padronizar tratamento de erros;
-- revisar avisos do Oxlint;
-- adicionar testes unitários;
-- adicionar testes de integração;
-- revisar labels internas de status.
+- rate limiting e proteção extra do formulário público;
+- auditoria sistemática em `AuditLog`, logs de autenticação e observabilidade;
+- revalidação de papel/bloqueio em sessões JWT já emitidas.
+
+### Débitos conhecidos (não bloqueantes)
+
+- `TrackClient` lê refs durante a renderização (aviso do lint em dev/StrictMode);
+- `requireUser` redireciona ao login sem `next` (o `apiClient` da pista já preserva o retorno);
+- colunas de texto `city`/`state` de atleta e arena duplicam o município (`cityCode`) por compatibilidade;
+- testes e2e usam nomes fixos por projeto (rodar com `--repeat-each` colide);
+- itens de UX menores listados nos PRs das fases 2 a 5.
 
 ### Arquitetura
 
-A divisão do `App.tsx` em rotas App Router (fase 1) está concluída. Próximas
-fases: PDF do sorteio avulso e demais ajustes de fluxo.
+A refatoração (fases 0 a 5) está concluída: rotas App Router, Server Components, Server Actions com
+commands compartilhados, identidade Arena, súmula em PDF e remoção da API REST sem consumidores e da
+camada CSS legada.
 
 ## 32. Skills utilizadas
 

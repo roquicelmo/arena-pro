@@ -7,6 +7,7 @@ const { prisma, tx } = vi.hoisted(() => {
     runTime: { count: vi.fn() },
     eventRegistration: { findMany: vi.fn() },
     event: { update: vi.fn() },
+    $executeRaw: vi.fn(),
   };
   return {
     tx,
