@@ -124,28 +124,46 @@ export function RegistrationsView({ eventId, registrations, athletes }: Props) {
 
   return (
     <div className="grid gap-4">
-      <nav aria-label="Etapas da inscrição" className="flex flex-wrap items-center gap-2">
-        {STEPS.map((s, index) => (
-          <button
-            key={s.category}
-            type="button"
-            aria-current={index === stepIndex ? 'step' : undefined}
-            onClick={() => setStepIndex(index)}
-            className={cn(
-              'flex items-center gap-2 rounded-ui border px-3 py-2 font-display text-sm font-bold uppercase tracking-wide transition-colors',
-              index === stepIndex ? 'border-accent bg-accent-soft text-ink-strong' : 'border-line bg-surface text-ink-muted hover:text-ink-strong',
-            )}
-          >
-            <span className={cn('grid h-6 w-6 place-items-center rounded-full text-xs', index === stepIndex ? 'bg-accent text-on-accent' : 'bg-sand')}>
-              {index + 1}
-            </span>
-            {s.label} ({counts[s.category]})
-          </button>
-        ))}
-      </nav>
+      <div className="flex flex-wrap items-center gap-2">
+        <nav aria-label="Etapas da inscrição" className="flex flex-wrap items-center gap-2">
+          {STEPS.map((s, index) => (
+            <button
+              key={s.category}
+              type="button"
+              aria-current={index === stepIndex ? 'step' : undefined}
+              onClick={() => setStepIndex(index)}
+              className={cn(
+                'flex items-center gap-2 rounded-ui border px-3 py-2 font-display text-sm font-bold uppercase tracking-wide transition-colors',
+                index === stepIndex ? 'border-accent bg-accent-soft text-ink-strong' : 'border-line bg-surface text-ink-muted hover:text-ink-strong',
+              )}
+            >
+              <span className={cn('grid h-6 w-6 place-items-center rounded-full text-xs', index === stepIndex ? 'bg-accent text-on-accent' : 'bg-sand')}>
+                {index + 1}
+              </span>
+              {s.label} ({counts[s.category]})
+            </button>
+          ))}
+        </nav>
+        <div className="flex flex-wrap gap-2 sm:ml-auto">
+          {stepIndex > 0 ? (
+            <Button variant="secondary" onClick={() => setStepIndex(stepIndex - 1)}>
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Voltar para {STEPS[stepIndex - 1].plural}
+            </Button>
+          ) : null}
+          {stepIndex < STEPS.length - 1 ? (
+            <Button onClick={() => { setStepIndex(stepIndex + 1); setSearch(''); }}>
+              Avançar para {STEPS[stepIndex + 1].plural} <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          ) : (
+            <Link href={`/provas/${eventId}/sorteio`} className="inline-flex items-center gap-2 rounded-ui bg-accent px-4 py-2 text-sm font-semibold text-on-accent hover:bg-accent-hover">
+              Ir para o sorteio <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          )}
+        </div>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section aria-labelledby="disponiveis" className="min-w-0 rounded-ui border border-line bg-surface">
+        <section aria-labelledby="disponiveis" className="flex min-w-0 flex-col rounded-ui border border-line bg-surface lg:h-[calc(100dvh-19rem)] lg:min-h-[24rem]">
           <div className="border-b border-line p-4">
             <h2 id="disponiveis" className="font-display text-lg font-bold uppercase tracking-wide text-ink-strong">
               Atletas disponíveis ({available.length})
@@ -157,7 +175,7 @@ export function RegistrationsView({ eventId, registrations, athletes }: Props) {
             </div>
           </div>
           {available.length ? (
-            <ul className="max-h-[32rem] divide-y divide-line overflow-y-auto">
+            <ul className="max-h-[32rem] min-h-0 divide-y lg:max-h-none lg:flex-1 divide-line overflow-y-auto">
               {available.map((a) => (
                 <li key={a.id}>
                   <button type="button" className={rowClass} aria-label={`Inscrever ${a.nome} como ${step.short}`} onClick={() => void onRegister(a)}>
@@ -178,7 +196,7 @@ export function RegistrationsView({ eventId, registrations, athletes }: Props) {
           )}
         </section>
 
-        <section aria-labelledby="inscritos" className="min-w-0 rounded-ui border border-line bg-surface">
+        <section aria-labelledby="inscritos" className="flex min-w-0 flex-col rounded-ui border border-line bg-surface lg:h-[calc(100dvh-19rem)] lg:min-h-[24rem]">
           <div className="border-b border-line p-4">
             <h2 id="inscritos" className="font-display text-lg font-bold uppercase tracking-wide text-ink-strong">
               {step.label} inscritos ({inStep.length + pendingInStep.length})
@@ -186,7 +204,7 @@ export function RegistrationsView({ eventId, registrations, athletes }: Props) {
             <p className="mt-1 text-sm text-ink-muted">Clique para cancelar uma inscrição.</p>
           </div>
           {inStep.length || pendingInStep.length ? (
-            <ul className="max-h-[36rem] divide-y divide-line overflow-y-auto">
+            <ul className="max-h-[36rem] min-h-0 divide-y lg:max-h-none lg:flex-1 divide-line overflow-y-auto">
               {inStep.map((item) => (
                 <li key={item.registrationId}>
                   <button type="button" className={rowClass} aria-label={`Cancelar inscrição de ${item.athlete.nome}`} onClick={() => void onCancel(item)}>
@@ -218,24 +236,6 @@ export function RegistrationsView({ eventId, registrations, athletes }: Props) {
         </section>
       </div>
 
-      <div className="flex flex-wrap justify-between gap-2">
-        {stepIndex > 0 ? (
-          <Button variant="secondary" onClick={() => setStepIndex(stepIndex - 1)}>
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Voltar para {STEPS[stepIndex - 1].plural}
-          </Button>
-        ) : (
-          <span />
-        )}
-        {stepIndex < STEPS.length - 1 ? (
-          <Button onClick={() => { setStepIndex(stepIndex + 1); setSearch(''); }}>
-            Avançar para {STEPS[stepIndex + 1].plural} <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Button>
-        ) : (
-          <Link href={`/provas/${eventId}/sorteio`} className="inline-flex items-center gap-2 rounded-ui bg-accent px-4 py-2 text-sm font-semibold text-on-accent hover:bg-accent-hover">
-            Ir para o sorteio <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
-        )}
-      </div>
     </div>
   );
 }
