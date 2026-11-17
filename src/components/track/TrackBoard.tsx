@@ -1,12 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { Crosshair, Download, Eraser } from 'lucide-react';
 import type { Run } from '../../types/roping';
 import { currentRunId, trackStats } from '../../lib/currentRun';
 import { normalizeName } from '../../lib/text';
 import { Button, Input, Select, StatTile } from '../ui';
-import { TrackRow } from './TrackRow';
+import { TrackHeader, TrackRow } from './TrackRow';
+import { trackTimesWidth } from './trackGrid';
 
 type Bull = 1 | 2 | 3;
 
@@ -43,6 +44,7 @@ export function TrackBoard({ runs, locked = false, onUpdateTime, onClearAllTimes
     return runs.filter((r) => (!battery || String(r.bateria) === battery)
       && (!q || String(r.numero) === q || normalizeName(`${r.cabeceiro.nome} ${r.pezeiro.nome}`).includes(q)));
   }, [runs, search, battery]);
+  const maxBulls = useMemo(() => Math.max(1, ...runs.map((r) => r.bois)), [runs]);
   const grouped = useMemo(() => {
     const map = new Map<number, Run[]>();
     for (const r of visible) map.set(r.bateria, [...(map.get(r.bateria) ?? []), r]);
@@ -90,12 +92,14 @@ export function TrackBoard({ runs, locked = false, onUpdateTime, onClearAllTimes
       {grouped.map(([b, items]) => {
         const crosses = [...new Set(items.map((r) => r.cruzamento))];
         return (
-          <section key={b} className="min-w-0 overflow-hidden rounded-ui border border-line bg-surface" aria-label={`Bateria ${b}`}>
+          <section key={b} className="min-w-0 overflow-hidden rounded-ui border border-line bg-surface" aria-label={`Bateria ${b}`}
+            style={{ '--track-times': trackTimesWidth(maxBulls) } as CSSProperties}>
             <h2 className="bg-nav px-3 py-2 font-display text-base font-bold uppercase tracking-wide text-ink-strong">
               Bateria {b}{crosses.length === 1 ? ` · ${crosses[0]}` : ''}
             </h2>
+            <TrackHeader maxBulls={maxBulls} />
             <ol className="divide-y divide-line">
-              {items.map((run) => <TrackRow key={run.id} run={run} current={run.id === current} disabled={locked} onUpdateTime={onUpdateTime} />)}
+              {items.map((run) => <TrackRow key={run.id} run={run} current={run.id === current} disabled={locked} maxBulls={maxBulls} onUpdateTime={onUpdateTime} />)}
             </ol>
           </section>
         );
