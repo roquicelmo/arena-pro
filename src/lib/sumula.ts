@@ -3,8 +3,8 @@ import { normalizeName } from './text';
 export interface SumulaRun {
   numero: number;
   bateria: number;
-  cabeceiro: { nome: string; hc: number };
-  pezeiro: { nome: string; hc: number };
+  cabeceiro: { id?: string; nome: string; hc: number };
+  pezeiro: { id?: string; nome: string; hc: number };
   grupoCab: string;
   grupoPe: string;
   shc: number;
@@ -67,14 +67,59 @@ export function buildFilename(title: string, version: number | null): string {
 }
 
 /** Converte corridas do app (Run) para o formato da súmula. */
-export const toSumulaRuns = (runs: Array<{ numero: number; bateria: number; cabeceiro: { nome: string; handicap: number }; pezeiro: { nome: string; handicap: number }; cabeceiroGrupo: string; pezeiroGrupo: string; shc: number; bois: number }>): SumulaRun[] =>
+export const toSumulaRuns = (runs: Array<{ numero: number; bateria: number; cabeceiro: { id?: string; nome: string; handicap: number }; pezeiro: { id?: string; nome: string; handicap: number }; cabeceiroGrupo: string; pezeiroGrupo: string; shc: number; bois: number }>): SumulaRun[] =>
   runs.map((r) => ({
     numero: r.numero,
     bateria: r.bateria,
-    cabeceiro: { nome: r.cabeceiro.nome, hc: r.cabeceiro.handicap },
-    pezeiro: { nome: r.pezeiro.nome, hc: r.pezeiro.handicap },
+    cabeceiro: { id: r.cabeceiro.id, nome: r.cabeceiro.nome, hc: r.cabeceiro.handicap },
+    pezeiro: { id: r.pezeiro.id, nome: r.pezeiro.nome, hc: r.pezeiro.handicap },
     grupoCab: r.cabeceiroGrupo,
     grupoPe: r.pezeiroGrupo,
     shc: r.shc,
     bois: r.bois,
   }));
+
+
+export type SumulaRole = 'CABECEIRO' | 'PEZEIRO';
+
+export interface SumulaAthleteGroup {
+  nome: string;
+  hc: number;
+  runs: SumulaRun[];
+}
+
+/** Agrupa as corridas por cabeceiro ou por pezeiro: atletas em ordem alfabética, corridas pela ordem de entrada. */
+export function groupSumulaByAthlete(runs: SumulaRun[], role: SumulaRole): SumulaAthleteGroup[] {
+  const groups = new Map<string, SumulaAthleteGroup>();
+  for (const run of runs) {
+    const athlete = role === 'CABECEIRO' ? run.cabeceiro : run.pezeiro;
+    const key = athlete.id ?? normalizeName(athlete.nome);
+    const group = groups.get(key) ?? { nome: athlete.nome, hc: athlete.hc, runs: [] };
+    group.runs.push(run);
+    groups.set(key, group);
+  }
+  return [...groups.values()]
+    .map((g) => ({ ...g, runs: [...g.runs].sort((a, b) => a.numero - b.numero) }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
+}
+
+export interface SumulaAthletePage {
+  group: SumulaAthleteGroup;
+  runs: SumulaRun[];
+  continued: boolean;
+}
+
+/** Cada atleta começa numa página nova; quem tem mais corridas que `perPage` continua na seguinte. */
+export function paginateByAthlete(groups: SumulaAthleteGroup[], perPage = 30): SumulaAthletePage[] {
+  const pages: SumulaAthletePage[] = [];
+  for (const group of groups) {
+    for (let start = 0; start < group.runs.length; start += perPage) {
+      pages.push({ group, runs: group.runs.slice(start, start + perPage), continued: start > 0 });
+    }
+  }
+  return pages;
+}
+
+/** "sumula-cabeceiros-<slug>-v<versão>.pdf" ou "sumula-pezeiros-…". */
+export const buildAthleteFilename = (title: string, version: number, role: SumulaRole) =>
+  buildFilename(title, version).replace(/^sumula-/, role === 'CABECEIRO' ? 'sumula-cabeceiros-' : 'sumula-pezeiros-');

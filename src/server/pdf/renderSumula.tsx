@@ -1,7 +1,8 @@
 import 'server-only';
 import React from 'react';
 import { renderToBuffer } from '@react-pdf/renderer';
-import { paginateSumula, type SumulaRun } from '../../lib/sumula';
+import { groupSumulaByAthlete, paginateByAthlete, paginateSumula, type SumulaRole, type SumulaRun } from '../../lib/sumula';
+import { SumulaAtletaDocument } from './SumulaAtletaDocument';
 import { SumulaDocument, type SumulaDocumentProps } from './SumulaDocument';
 
 const generatedAt = () =>
@@ -17,6 +18,22 @@ export async function renderSumulaResponse(
   const buffer = await renderToBuffer(
     <SumulaDocument {...input} totalRuns={input.runs.length} pages={paginateSumula(input.runs)} generatedAt={generatedAt()} />,
   );
+  return pdfResponse(buffer, filename);
+}
+
+/** Gera a súmula agrupada por cabeceiro ou por pezeiro. */
+export async function renderSumulaAtletaResponse(
+  input: { role: SumulaRole; title: string; details: string[]; version: number; runs: SumulaRun[] },
+  filename: string,
+): Promise<Response> {
+  const pages = paginateByAthlete(groupSumulaByAthlete(input.runs, input.role));
+  const buffer = await renderToBuffer(
+    <SumulaAtletaDocument role={input.role} title={input.title} details={input.details} version={input.version} pages={pages} generatedAt={generatedAt()} />,
+  );
+  return pdfResponse(buffer, filename);
+}
+
+function pdfResponse(buffer: Buffer, filename: string): Response {
   return new Response(new Uint8Array(buffer), {
     headers: {
       'Content-Type': 'application/pdf',
