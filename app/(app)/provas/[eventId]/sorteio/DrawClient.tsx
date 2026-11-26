@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Download, Lock } from 'lucide-react';
+import { Download, Lock, RefreshCw } from 'lucide-react';
 import { DrawReview } from '../../../../../src/components/draw/DrawReview';
 import { DrawSetup } from '../../../../../src/components/draw/DrawSetup';
 import { Button, useConfirm } from '../../../../../src/components/ui';
@@ -60,16 +60,13 @@ export function DrawClient({ eventId, cabeceiros, pezeiros, initialConfig, runs,
   return (
     <div className="grid gap-6">
       <DrawSetup config={config} onChange={setConfig} cabeceiros={cabeceiros} pezeiros={pezeiros} disabled={locked || generate.pending} />
-      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-end">
-        {locked && (
-          <p className="flex items-center gap-2 text-sm text-ink-muted">
-            <Lock className="h-4 w-4" aria-hidden="true" /> {LOCK_TEXT[lockReason]}
-          </p>
-        )}
-        <Button size="lg" loading={generate.pending} disabled={locked || !canGenerate} onClick={() => void onGenerate()}>
-          {hasDraw ? 'Refazer sorteio' : 'Gerar sorteio'}
-        </Button>
-      </div>
+      {!hasDraw && (
+        <div className="flex justify-end">
+          <Button size="lg" loading={generate.pending} disabled={!canGenerate} onClick={() => void onGenerate()}>
+            Gerar sorteio
+          </Button>
+        </div>
+      )}
 
       {hasDraw && (
         <section className="grid gap-3" aria-labelledby="draw-current">
@@ -77,13 +74,30 @@ export function DrawClient({ eventId, cabeceiros, pezeiros, initialConfig, runs,
             <h2 id="draw-current" className="font-display text-2xl font-bold uppercase tracking-wide text-ink-strong">
               Sorteio atual{version ? ` · versão ${version}` : ''}
             </h2>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {locked && (
+                <p className="flex items-center gap-2 text-sm text-ink-muted">
+                  <Lock className="h-4 w-4" aria-hidden="true" /> {LOCK_TEXT[lockReason]}
+                </p>
+              )}
+              <Button variant="secondary" className="h-10" loading={generate.pending} disabled={locked || !canGenerate} onClick={() => void onGenerate()}>
+                <RefreshCw className="h-4 w-4" aria-hidden="true" /> Refazer sorteio
+              </Button>
               <a
                 href={`/provas/${eventId}/sorteio/sumula.pdf`}
                 className="inline-flex h-10 items-center gap-2 rounded-ui bg-accent px-4 font-display text-[0.95rem] font-semibold uppercase tracking-wide text-on-accent hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
                 <Download className="h-4 w-4" aria-hidden="true" /> Baixar súmula (PDF)
               </a>
+              {(['cabeceiro', 'pezeiro'] as const).map((kind) => (
+                <a
+                  key={kind}
+                  href={`/provas/${eventId}/sorteio/sumula-${kind}s.pdf`}
+                  className="inline-flex h-10 items-center gap-2 rounded-ui border border-line bg-surface px-4 font-display text-[0.95rem] font-semibold uppercase tracking-wide text-ink-strong hover:bg-nav focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+                >
+                  <Download className="h-4 w-4" aria-hidden="true" /> Súmula por {kind}
+                </a>
+              ))}
               <Link href={`/provas/${eventId}/pista`} className="inline-flex h-10 items-center rounded-ui border border-line bg-surface px-4 font-display text-[0.95rem] font-semibold uppercase tracking-wide text-ink-strong hover:bg-nav">
                 Ir para a pista
               </Link>

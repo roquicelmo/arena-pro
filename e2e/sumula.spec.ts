@@ -29,12 +29,33 @@ test('súmula da prova sorteada é um PDF de verdade', async ({ page }) => {
   expect(body.toString('latin1')).toMatch(/\/Type\s*\/Page\b/);
 });
 
+test('súmulas por cabeceiro e por pezeiro são PDFs', async ({ page }) => {
+  await loginAs(page, 'userA');
+  const path = await eventPath(page, TEST_EVENTS.userA);
+  await page.goto(`${path}/sorteio`);
+  await expect(page.getByRole('button', { name: /^(Gerar|Refazer) sorteio$/ })).toBeVisible();
+  const generate = page.getByRole('button', { name: 'Gerar sorteio' });
+  if (await generate.isVisible()) {
+    await generate.click();
+    await expect(page.getByRole('heading', { name: /Sorteio atual/ })).toBeVisible();
+  }
+  for (const kind of ['cabeceiro', 'pezeiro']) {
+    const href = await page.getByRole('link', { name: `Súmula por ${kind}` }).getAttribute('href');
+    const response = await page.request.get(href!);
+    expect(response.status()).toBe(200);
+    expect(response.headers()['content-disposition']).toMatch(new RegExp(`filename="sumula-${kind}s-prova-e2e-user-a-v\\d+\\.pdf"`));
+    expect((await response.body()).subarray(0, 4).toString()).toBe('%PDF');
+  }
+});
+
 test('sem sorteio a súmula responde 404 com mensagem; sem sessão, 401', async ({ page }) => {
   await loginAs(page, 'userB');
   const path = await eventPath(page, TEST_EVENTS.userB);
   const response = await page.request.get(`${path}/sorteio/sumula.pdf`);
   expect(response.status()).toBe(404);
   expect(await response.json()).toEqual({ message: 'Nenhum sorteio gerado para esta prova.' });
+  expect((await page.request.get(`${path}/sorteio/sumula-pezeiros.pdf`)).status()).toBe(404);
   await page.context().clearCookies();
   expect((await page.request.get(`${path}/sorteio/sumula.pdf`)).status()).toBe(401);
+  expect((await page.request.get(`${path}/sorteio/sumula-cabeceiros.pdf`)).status()).toBe(401);
 });
