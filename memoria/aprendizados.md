@@ -14,6 +14,11 @@ Uma linha por lição: sintoma → causa/correção. Não apague linhas; corrija
 - Vazamento de dados entre usuários → `accessScope` devolve OR de topo. Combine com AND.
 - Login em produção caiu com erro csrf 500 → faltava `AUTH_SECRET` na Vercel.
 - Migration nova quebra produção → o build não migra. Rode `npm run db:deploy` antes de promover o deploy.
+- `migrate diff` sem shadow DB → `git show HEAD:prisma/schema.prisma > old.prisma` e `prisma migrate diff --from-schema-datamodel old.prisma --to-schema-datamodel prisma/schema.prisma --script`.
+- Banco local não sobe (bind mount de `/Developer/sorteios-lagoa`, caminho antigo) e `compose up` no worktree cria volume vazio `<worktree>_…` → no checkout principal: `docker compose -p sorteios-lagoa up -d --wait --force-recreate` (reusa o volume com os dados).
+
+## Zod
+- Erro de regra do objeto (cidade, "ao menos um handicap") sumia quando outro campo tinha erro de tipo → em Zod 4 o `superRefine` do objeto não roda; passe `{ when: () => true }`.
 
 ## UI
 - `.text-white` não funcionava → camada CSS legada sobrescrevia (já removida). Use `text-on-accent`.
@@ -27,6 +32,7 @@ Uma linha por lição: sintoma → causa/correção. Não apague linhas; corrija
 ## E2E
 - Testes colidem com `--repeat-each` → registros com nome fixo por projeto. Use sufixo do projeto e não repita.
 - Datas de relatório instáveis → use a data do seed.
+- Mudar default do formulário de atleta quebrou specs de outras telas (registrations, records, quick-draw criam atleta pela UI) → ao mudar defaults, procure `Salvar atleta` em todo o `e2e/`.
 
 ## Processo
 - Produção com layout antigo depois do merge → PRs empilhados (#9, #10) entraram nos branches base, não na `main`. PR sempre com base `main`, ou troque a base antes do merge.

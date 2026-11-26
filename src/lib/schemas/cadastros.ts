@@ -21,7 +21,10 @@ const toNumber = (value: unknown) => {
 const cityCodeField = z.preprocess(toNumber, z.number({ error: CITY_MESSAGE }).int(CITY_MESSAGE).positive(CITY_MESSAGE));
 const optionalCityCodeField = z.preprocess(toNumber, z.number({ error: CITY_MESSAGE }).int(CITY_MESSAGE).positive(CITY_MESSAGE).optional());
 
-const handicapField = z.preprocess(
+const HANDICAP_REQUIRED = 'Informe ao menos um handicap (cabeceiro ou pezeiro).';
+
+/** Handicap opcional: vazio vira `undefined`; preenchido vai de 0 a 10, em múltiplos de 0,5. */
+const optionalHandicapField = z.preprocess(
   (value) => {
     const v = blankToUndefined(value);
     if (typeof v === 'string') {
@@ -34,19 +37,48 @@ const handicapField = z.preprocess(
     .number({ error: 'Informe o handicap.' })
     .min(0, 'O handicap vai de 0 a 10.')
     .max(10, 'O handicap vai de 0 a 10.')
-    .refine((n) => Number.isInteger(n * 2), 'Use múltiplos de 0,5.'),
+    .refine((n) => Number.isInteger(n * 2), 'Use múltiplos de 0,5.')
+    .optional(),
 );
 
 const ARENA_NAME_MESSAGE = 'Informe o nome da arena.';
 
-export const athleteSchema = z.object({
+const athleteFields = z.object({
   name: requiredText(2, 120, 'Informe o nome com pelo menos 2 letras.'),
   nickname: optionalText(80),
   club: optionalText(80),
-  cityCode: cityCodeField,
-  headHandicap: handicapField,
-  heelHandicap: handicapField,
+  cityCode: optionalCityCodeField,
+  cityUnknown: z.boolean().optional(),
+  headHandicap: optionalHandicapField,
+  heelHandicap: optionalHandicapField,
 });
+
+// Os valores podem chegar crus/inválidos: só `undefined` conta como vazio.
+const athleteRules = (
+  value: { cityUnknown?: boolean; cityCode?: unknown; headHandicap?: unknown; heelHandicap?: unknown },
+  ctx: z.core.$RefinementCtx,
+) => {
+  if (value.cityUnknown !== true && value.cityCode === undefined) {
+    ctx.addIssue({ code: 'custom', path: ['cityCode'], message: CITY_MESSAGE });
+  }
+  if (value.headHandicap === undefined && value.heelHandicap === undefined) {
+    ctx.addIssue({ code: 'custom', path: ['headHandicap'], message: HANDICAP_REQUIRED });
+    ctx.addIssue({ code: 'custom', path: ['heelHandicap'], message: HANDICAP_REQUIRED });
+  }
+};
+
+// Cidade não informada: o cityCode enviado é descartado aqui.
+const dropCityWhenUnknown = <T extends { cityUnknown?: boolean; cityCode?: number }>(value: T): T =>
+  value.cityUnknown === true ? { ...value, cityCode: undefined } : value;
+
+export const athleteSchema = athleteFields
+  .superRefine(athleteRules, { when: () => true })
+  .transform(dropCityWhenUnknown);
+
+export const athleteUpdateSchema = athleteFields
+  .extend({ id: z.string().min(1) })
+  .superRefine(athleteRules, { when: () => true })
+  .transform(dropCityWhenUnknown);
 
 export const arenaSchema = z.object({
   name: requiredText(2, 120, ARENA_NAME_MESSAGE),
@@ -96,9 +128,9 @@ export const athleteNoteSchema = z.object({
 });
 
 export const duplicateCheckSchema = z.object({
-  name: athleteSchema.shape.name,
+  name: athleteFields.shape.name,
   cityCode: cityCodeField,
-  club: athleteSchema.shape.club,
+  club: athleteFields.shape.club,
 });
 
 export const ufSchema = z.string().regex(/^[A-Z]{2}$/);

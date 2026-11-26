@@ -25,7 +25,7 @@ export interface AthleteFormDialogProps {
   onUseExisting?: (athleteId: string) => void;
 }
 
-const formatHandicap = (value: number | undefined) => (value === undefined ? '2.5' : String(value));
+const formatHandicap = (value: number | undefined) => (value === undefined ? '' : String(value));
 
 export function AthleteFormDialog(props: AthleteFormDialogProps) {
   const { open, onClose, athlete } = props;
@@ -39,16 +39,20 @@ export function AthleteFormDialog(props: AthleteFormDialogProps) {
 
 function AthleteForm({ onClose, athlete, states, defaultCity, showOwner = false, onSaved, onUseExisting, onBusyChange }: AthleteFormDialogProps & { onBusyChange: (busy: boolean) => void }) {
   const needsReview = Boolean(athlete?.cityNeedsReview);
-  const initialCity: CityValue = athlete
+  const startsUnknown = Boolean(athlete) && !needsReview
+    && athlete?.cidade === undefined && athlete?.estado === undefined && athlete?.cityCode === undefined;
+  const defaultValue: CityValue = { uf: defaultCity.uf, cityCode: defaultCity.code, cityName: defaultCity.name };
+  const initialCity: CityValue = athlete && !startsUnknown
     ? needsReview || athlete.cityCode === undefined
       ? { uf: athlete.estado ?? defaultCity.uf, cityCode: null, cityName: '' }
       : { uf: athlete.estado ?? defaultCity.uf, cityCode: athlete.cityCode, cityName: athlete.cidade ?? '' }
-    : { uf: defaultCity.uf, cityCode: defaultCity.code, cityName: defaultCity.name };
+    : defaultValue;
 
   const [name, setName] = useState(athlete?.nome ?? '');
   const [nickname, setNickname] = useState(athlete?.apelido ?? '');
   const [club, setClub] = useState(athlete?.clube ?? '');
   const [city, setCity] = useState<CityValue>(initialCity);
+  const [cityUnknown, setCityUnknown] = useState(startsUnknown);
   const [cityLoading, setCityLoading] = useState(false);
   const [head, setHead] = useState(formatHandicap(athlete?.headHandicap));
   const [heel, setHeel] = useState(formatHandicap(athlete?.heelHandicap));
@@ -69,7 +73,8 @@ function AthleteForm({ onClose, athlete, states, defaultCity, showOwner = false,
     name,
     nickname,
     club,
-    cityCode: city.cityCode ?? '',
+    cityUnknown,
+    cityCode: cityUnknown ? '' : city.cityCode ?? '',
     headHandicap: head,
     heelHandicap: heel,
   });
@@ -87,7 +92,7 @@ function AthleteForm({ onClose, athlete, states, defaultCity, showOwner = false,
     if (submitting.current) return;
     submitting.current = true;
     try {
-      if (!athlete && city.cityCode !== null) {
+      if (!athlete && !cityUnknown && city.cityCode !== null) {
         setChecking(true);
         try {
           const check = await checkAthleteDuplicatesAction({ name, cityCode: city.cityCode, club });
@@ -139,12 +144,16 @@ function AthleteForm({ onClose, athlete, states, defaultCity, showOwner = false,
         defaultCity={initialCity.cityCode !== null ? { code: initialCity.cityCode, name: initialCity.cityName } : undefined}
         value={city}
         onChange={setCity} onLoadingChange={setCityLoading}
+        allowUnknown
+        unknown={cityUnknown}
+        onUnknownChange={setCityUnknown}
         error={cityError}
         hint={needsReview && athlete?.cidade ? `Cidade anterior: ${athlete.cidade}` : undefined}
       />
       <div className="grid gap-4 sm:grid-cols-2">
         <Input label="Handicap de cabeceiro" name="headHandicap" inputMode="decimal" value={head} onChange={(e) => setHead(e.target.value)} error={errors.headHandicap?.[0]} />
         <Input label="Handicap de pezeiro" name="heelHandicap" inputMode="decimal" value={heel} onChange={(e) => setHeel(e.target.value)} error={errors.heelHandicap?.[0]} />
+        <p className="text-xs text-ink-muted sm:col-span-2">Preencha ao menos um dos dois.</p>
       </div>
 
       {duplicates && (
@@ -181,7 +190,7 @@ function AthleteForm({ onClose, athlete, states, defaultCity, showOwner = false,
         <Button variant="secondary" onClick={onClose} disabled={busy}>
           Cancelar
         </Button>
-        <Button type="submit" disabled={cityLoading} loading={busy}>
+        <Button type="submit" disabled={cityLoading && !cityUnknown} loading={busy}>
           Salvar atleta
         </Button>
       </div>

@@ -60,6 +60,35 @@ describe('atletas', () => {
     expect(athletes.createAthlete).not.toHaveBeenCalled();
   });
 
+  it('createAthleteAction com só heelHandicap manda headHandicap null', async () => {
+    athletes.createAthlete.mockResolvedValue(dbAthlete);
+    await a.createAthleteAction({ ...athleteInput, headHandicap: '', heelHandicap: '2' });
+    expect(athletes.createAthlete).toHaveBeenCalledWith(user, expect.objectContaining({ headHandicap: null, heelHandicap: 2 }));
+  });
+
+  it('createAthleteAction com cidade não informada zera a cidade e não repassa cityUnknown', async () => {
+    athletes.createAthlete.mockResolvedValue(dbAthlete);
+    await a.createAthleteAction({ ...athleteInput, cityUnknown: true, cityCode: '' });
+    const payload = athletes.createAthlete.mock.calls[0][1];
+    expect(payload).toMatchObject({ cityCode: null, city: null, state: null });
+    expect(payload).not.toHaveProperty('cityUnknown');
+  });
+
+  it('updateAthleteAction limpa handicap vazio e cidade não informada', async () => {
+    athletes.updateAthlete.mockResolvedValue(dbAthlete);
+    await a.updateAthleteAction('a1', { ...athleteInput, headHandicap: '', cityUnknown: true, cityCode: '' });
+    expect(athletes.updateAthlete).toHaveBeenCalledWith(
+      user, 'a1', expect.objectContaining({ headHandicap: null, heelHandicap: 3, cityCode: null, city: null, state: null }),
+    );
+    expect(athletes.updateAthlete.mock.calls[0][2]).not.toHaveProperty('cityUnknown');
+  });
+
+  it('resposta com handicap nulo do banco não quebra', async () => {
+    athletes.createAthlete.mockResolvedValue({ ...dbAthlete, headHandicap: null });
+    const result = await a.createAthleteAction(athleteInput);
+    expect(result).toMatchObject({ ok: true, data: { heelHandicap: 3, headHandicap: undefined, handicap: 0 } });
+  });
+
   it('updateAthleteAction passa o id separado dos dados', async () => {
     athletes.updateAthlete.mockResolvedValue(dbAthlete);
     await a.updateAthleteAction('a1', athleteInput);

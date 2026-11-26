@@ -11,8 +11,8 @@ export interface PersistedAthlete {
   state?: string | null;
   club?: string | null;
   cityCode?: number | null;
-  headHandicap: number | string;
-  heelHandicap: number | string;
+  headHandicap: number | string | null;
+  heelHandicap: number | string | null;
   ownerId?: string | null;
   owner?: { name: string | null };
 }
@@ -48,8 +48,8 @@ export interface PersistedEvent {
 }
 
 export const toCompetitor = (athlete: PersistedAthlete, role: 'head' | 'heel' = 'head'): Competitor => {
-  const headHandicap = Number(athlete.headHandicap);
-  const heelHandicap = Number(athlete.heelHandicap);
+  const headHandicap = athlete.headHandicap == null ? undefined : Number(athlete.headHandicap);
+  const heelHandicap = athlete.heelHandicap == null ? undefined : Number(athlete.heelHandicap);
   return {
     id: athlete.id,
     registrationNo: athlete.registrationNo ?? undefined,
@@ -60,7 +60,7 @@ export const toCompetitor = (athlete: PersistedAthlete, role: 'head' | 'heel' = 
     clube: athlete.club ?? undefined,
     cityCode: athlete.cityCode ?? undefined,
     cityNeedsReview: Boolean(athlete.city) && athlete.cityCode == null,
-    handicap: role === 'head' ? headHandicap : heelHandicap,
+    handicap: (role === 'head' ? headHandicap : heelHandicap) ?? 0,
     headHandicap,
     heelHandicap,
     ownerId: athlete.ownerId ?? undefined,

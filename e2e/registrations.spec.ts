@@ -18,6 +18,7 @@ test('inscreve por etapa com um clique na linha e cancela com confirmação', as
   await page.getByRole('button', { name: 'Novo atleta' }).click();
   const dialog = page.getByRole('dialog', { name: 'Novo atleta' });
   await dialog.getByLabel('Nome').fill(name);
+  await dialog.getByLabel('Handicap de cabeceiro').fill('2.5');
   await dialog.getByRole('button', { name: 'Salvar atleta' }).click();
   await expect(page.getByText('Atleta cadastrado.')).toBeVisible();
 

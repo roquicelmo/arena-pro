@@ -49,6 +49,7 @@ test('cadastro rápido cria o atleta e o mostra na lista sem recarregar', async 
   await page.getByRole('button', { name: 'Novo atleta' }).click();
   const dialog = page.getByRole('dialog', { name: 'Novo atleta' });
   await dialog.getByLabel('Nome').fill(name);
+  await dialog.getByLabel('Handicap de cabeceiro').fill('2.5');
   await dialog.getByRole('button', { name: 'Salvar atleta' }).click();
   await expect(page.getByText('Atleta cadastrado.')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Cabeceiros' }).getByText(name)).toBeVisible();

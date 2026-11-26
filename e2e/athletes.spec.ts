@@ -32,6 +32,37 @@ test('cria, edita e remove um atleta', async ({ page }, testInfo) => {
   await expect(page.getByText(name)).toHaveCount(0);
 });
 
+test('cria atleta só com handicap de pezeiro e cidade não informada', async ({ page }, testInfo) => {
+  const name = `ATLETA NI ${testInfo.project.name}`;
+  await loginAs(page, 'userA');
+  await page.goto('/atletas');
+  await page.getByRole('button', { name: 'Novo atleta' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Novo atleta' });
+  await dialog.getByLabel('Nome').fill(name);
+  await dialog.getByRole('button', { name: 'Salvar atleta' }).click();
+  await expect(dialog.getByText('Informe ao menos um handicap (cabeceiro ou pezeiro).').first()).toBeVisible();
+  await dialog.getByLabel('Handicap de pezeiro').fill('2');
+  await dialog.getByLabel('Não informado').check();
+  await expect(dialog.getByLabel('UF')).toBeDisabled();
+  await expect(dialog.getByLabel('Cidade')).toBeDisabled();
+  await expect(dialog.getByLabel('Cidade')).toHaveValue('Não informado');
+  await dialog.getByRole('button', { name: 'Salvar atleta' }).click();
+  await expect(page.getByText('Atleta cadastrado.')).toBeVisible();
+  const row = page.getByRole('listitem').filter({ hasText: name });
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText('—');
+  await expect(row).toContainText('2.0');
+  await page.getByRole('button', { name: `Editar ${name}` }).click();
+  const edit = page.getByRole('dialog', { name: 'Editar atleta' });
+  await expect(edit.getByLabel('Não informado')).toBeChecked();
+  await expect(edit.getByLabel('Handicap de cabeceiro')).toHaveValue('');
+  await expect(edit.getByLabel('Handicap de pezeiro')).toHaveValue('2');
+  await edit.getByRole('button', { name: 'Cancelar' }).click();
+  await page.getByRole('button', { name: `Remover ${name}` }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Remover atleta' }).click();
+  await expect(page.getByText(name)).toHaveCount(0);
+});
+
 test('erro de validação mantém o que foi digitado', async ({ page }) => {
   await loginAs(page, 'userA');
   await page.goto('/atletas');
@@ -73,6 +104,7 @@ test('nome longo não cria scroll horizontal', async ({ page }, testInfo) => {
   await page.getByRole('button', { name: 'Novo atleta' }).click();
   const dialog = page.getByRole('dialog', { name: 'Novo atleta' });
   await dialog.getByLabel('Nome').fill(name);
+  await dialog.getByLabel('Handicap de cabeceiro').fill('2.5');
   await dialog.getByRole('button', { name: 'Salvar atleta' }).click();
   await expect(page.getByText('Atleta cadastrado.')).toBeVisible();
   await expect(page.getByRole('listitem').filter({ hasText: name.slice(0, 30) }).first()).toBeVisible();
@@ -138,6 +170,7 @@ test('o user B não recebe aviso de duplicado de atleta do A', async ({ page }) 
   await page.getByRole('button', { name: 'Novo atleta' }).click();
   const dialog = page.getByRole('dialog', { name: 'Novo atleta' });
   await dialog.getByLabel('Nome').fill('Cabeceiro A1');
+  await dialog.getByLabel('Handicap de cabeceiro').fill('2.5');
   await dialog.getByLabel('UF').selectOption('MG');
   await dialog.getByLabel('Cidade').fill('Lagoa da Prata');
   await dialog.getByRole('button', { name: 'Salvar atleta' }).click();

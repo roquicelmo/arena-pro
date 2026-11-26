@@ -32,6 +32,14 @@ describe('mappers', () => {
     expect(toCompetitor(athleteFixture({ headHandicap: '3.5', heelHandicap: '2' })).handicap).toBe(3.5);
   });
 
+  it('handicap ausente vira undefined e conta 0 no papel correspondente', () => {
+    const head = toCompetitor(athleteFixture({ headHandicap: null, heelHandicap: '2' }));
+    expect(head).toMatchObject({ handicap: 0, headHandicap: undefined, heelHandicap: 2 });
+    const heel = toCompetitor(athleteFixture({ headHandicap: '3', heelHandicap: null }), 'heel');
+    expect(heel).toMatchObject({ handicap: 0, headHandicap: 3, heelHandicap: undefined });
+    expect(toCompetitor(athleteFixture({ headHandicap: '3', heelHandicap: null })).handicap).toBe(3);
+  });
+
   it('resume a prova para a interface', () => {
     const summary = toEventSummary({
       id: 'e1', name: 'Prova', eventDate: '2026-05-10T12:00:00Z', status: 'DRAWN',

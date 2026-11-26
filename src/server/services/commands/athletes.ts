@@ -15,8 +15,8 @@ export interface AthleteData {
   email?: string | null;
   city?: string | null;
   state?: string | null;
-  headHandicap: number;
-  heelHandicap: number;
+  headHandicap?: number | null;
+  heelHandicap?: number | null;
 }
 
 export async function createAthlete(user: ScopeUser, data: AthleteData & { ownerId?: string }): Promise<Athlete> {
@@ -29,8 +29,8 @@ export async function createAthlete(user: ScopeUser, data: AthleteData & { owner
       club: data.club || null,
       phone: data.phone || null,
       email: data.email || null,
-      headHandicap: data.headHandicap,
-      heelHandicap: data.heelHandicap,
+      headHandicap: data.headHandicap ?? null,
+      heelHandicap: data.heelHandicap ?? null,
       ...place,
       ownerId,
     },

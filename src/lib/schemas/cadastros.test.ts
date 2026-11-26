@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
-  arenaSchema, athleteNoteSchema, athleteSchema, duplicateCheckSchema, eventSchema, eventUpdateSchema, ufSchema,
+  arenaSchema, athleteNoteSchema, athleteSchema, athleteUpdateSchema, duplicateCheckSchema, eventSchema, eventUpdateSchema, ufSchema,
 } from './cadastros';
 
 const flat = (schema: z.ZodType, input: unknown) => {
@@ -21,7 +21,6 @@ describe('athleteSchema', () => {
     expect(flat(athleteSchema, { name: 'Z', headHandicap: '', heelHandicap: 2.3 })).toEqual({
       name: ['Informe o nome com pelo menos 2 letras.'],
       cityCode: ['Escolha uma cidade da lista.'],
-      headHandicap: ['Informe o handicap.'],
       heelHandicap: ['Use múltiplos de 0,5.'],
     });
     expect(flat(athleteSchema, { name: 'Zé', cityCode: 1, headHandicap: 11, heelHandicap: 'abc' })).toMatchObject({
@@ -29,6 +28,56 @@ describe('athleteSchema', () => {
     });
     expect(flat(athleteSchema, { name: 'x'.repeat(121), cityCode: 1, headHandicap: 1, heelHandicap: 1 }).name)
       .toEqual(['Use no máximo 120 caracteres.']);
+  });
+
+  it('aceita só um dos handicaps (o outro sai undefined)', () => {
+    const base = { name: 'Zé', cityCode: 1 };
+    const head = athleteSchema.parse({ ...base, headHandicap: '2,5', heelHandicap: ' ' });
+    expect(head.headHandicap).toBe(2.5);
+    expect(head.heelHandicap).toBeUndefined();
+    const heel = athleteSchema.parse({ ...base, headHandicap: '', heelHandicap: '3' });
+    expect(heel.headHandicap).toBeUndefined();
+    expect(heel.heelHandicap).toBe(3);
+  });
+
+  it('exige ao menos um handicap, com erro nos dois campos', () => {
+    expect(flat(athleteSchema, { name: 'Zé', cityCode: 1, headHandicap: '', heelHandicap: '' })).toEqual({
+      headHandicap: ['Informe ao menos um handicap (cabeceiro ou pezeiro).'],
+      heelHandicap: ['Informe ao menos um handicap (cabeceiro ou pezeiro).'],
+    });
+  });
+
+  it('cidade não informada dispensa cityCode e descarta o enviado', () => {
+    const base = { name: 'Zé', headHandicap: 1, heelHandicap: 1 };
+    const sem = athleteSchema.parse({ ...base, cityUnknown: true, cityCode: '' });
+    expect(sem.cityCode).toBeUndefined();
+    expect(athleteSchema.parse({ ...base, cityUnknown: true, cityCode: 123 }).cityCode).toBeUndefined();
+    expect(flat(athleteSchema, { ...base, cityUnknown: false, cityCode: '' }).cityCode).toEqual(['Escolha uma cidade da lista.']);
+    expect(flat(athleteSchema, base).cityCode).toEqual(['Escolha uma cidade da lista.']);
+  });
+
+  it('erros de cidade e handicap aparecem junto com erro de outro campo', () => {
+    expect(flat(athleteSchema, { name: 'Z', heelHandicap: 'abc' })).toEqual({
+      name: ['Informe o nome com pelo menos 2 letras.'],
+      cityCode: ['Escolha uma cidade da lista.'],
+      heelHandicap: ['Informe o handicap.'],
+    });
+  });
+
+  it('athleteUpdateSchema aplica as mesmas regras e exige id', () => {
+    expect(athleteUpdateSchema.parse({ id: 'a1', name: 'Zé', cityUnknown: true, headHandicap: 2 }))
+      .toMatchObject({ id: 'a1', headHandicap: 2 });
+    expect(flat(athleteUpdateSchema, { name: 'Z', heelHandicap: 'abc' })).toMatchObject({
+      id: expect.any(Array),
+      name: expect.any(Array),
+      cityCode: ['Escolha uma cidade da lista.'],
+      heelHandicap: ['Informe o handicap.'],
+    });
+    expect(flat(athleteUpdateSchema, { id: 'a1', name: 'Z' })).toMatchObject({
+      cityCode: ['Escolha uma cidade da lista.'],
+      headHandicap: ['Informe ao menos um handicap (cabeceiro ou pezeiro).'],
+      heelHandicap: ['Informe ao menos um handicap (cabeceiro ou pezeiro).'],
+    });
   });
 
   it('textos opcionais em branco viram undefined e chaves desconhecidas somem', () => {
