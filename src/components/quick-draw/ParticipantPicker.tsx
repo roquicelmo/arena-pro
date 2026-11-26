@@ -40,15 +40,18 @@ export function ParticipantPicker({ title, athletes, selected, onChange, handica
         <Input label={`Buscar em ${title.toLowerCase()}`} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Nome, apelido ou cidade" />
       </div>
       <ul className="mt-3 max-h-[24rem] divide-y divide-line overflow-y-auto">
-        {visible.map((a) => (
-          <li key={a.id}>
-            <label className="flex cursor-pointer items-center gap-3 py-2 text-sm">
-              <input type="checkbox" className="h-4 w-4 accent-accent" checked={selected.has(a.id)} onChange={() => toggle(a.id)} />
-              <span className="min-w-0 flex-1 truncate font-semibold text-ink-strong">{a.nome}</span>
-              <span className="text-xs text-ink-muted">HC {(handicapOf(a) ?? 0).toFixed(1).replace('.', ',')}</span>
-            </label>
-          </li>
-        ))}
+        {visible.map((a) => {
+          const handicap = handicapOf(a);
+          return (
+            <li key={a.id}>
+              <label className="flex cursor-pointer items-center gap-3 py-2 text-sm">
+                <input type="checkbox" className="h-4 w-4 accent-accent" checked={selected.has(a.id)} onChange={() => toggle(a.id)} />
+                <span className="min-w-0 flex-1 truncate font-semibold text-ink-strong">{a.nome}</span>
+                <span className="text-xs text-ink-muted">HC {handicap === undefined ? '—' : handicap.toFixed(1).replace('.', ',')}</span>
+              </label>
+            </li>
+          );
+        })}
         {!visible.length && <li className="py-4 text-sm text-ink-muted">Nenhum atleta encontrado.</li>}
       </ul>
     </section>

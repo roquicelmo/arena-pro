@@ -150,8 +150,8 @@ export function AthletesView({ athletes, notes, owners, canFilterOwners, ownerFi
                       {athlete.clube && <p className="truncate text-xs text-ink-muted">{athlete.clube}</p>}
                     </div>
                     <p className="text-sm text-ink md:contents">
-                      <span className="font-display md:font-sans"><span className="text-ink-muted md:hidden">HC cab. </span>{(athlete.headHandicap ?? athlete.handicap).toFixed(1)}</span>
-                      <span className="ml-3 font-display md:ml-0 md:font-sans"><span className="text-ink-muted md:hidden">HC pé </span>{(athlete.heelHandicap ?? athlete.handicap).toFixed(1)}</span>
+                      <span className="font-display md:font-sans"><span className="text-ink-muted md:hidden">HC cab. </span>{athlete.headHandicap?.toFixed(1) ?? '—'}</span>
+                      <span className="ml-3 font-display md:ml-0 md:font-sans"><span className="text-ink-muted md:hidden">HC pé </span>{athlete.heelHandicap?.toFixed(1) ?? '—'}</span>
                     </p>
                     {canFilterOwners && <p className="truncate text-xs text-ink-muted md:text-sm">{athlete.ownerName ?? 'Sem atribuição'}</p>}
                     <div className="flex justify-end md:w-[7.5rem]">

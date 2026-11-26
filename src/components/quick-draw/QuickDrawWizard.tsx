@@ -26,8 +26,8 @@ interface Props {
   canFilterOwners: boolean;
 }
 
-const asHead = (a: Competitor): Competitor => ({ ...a, handicap: a.headHandicap ?? a.handicap });
-const asHeel = (a: Competitor): Competitor => ({ ...a, handicap: a.heelHandicap ?? a.handicap });
+const asHead = (a: Competitor): Competitor => ({ ...a, handicap: a.headHandicap ?? 0 });
+const asHeel = (a: Competitor): Competitor => ({ ...a, handicap: a.heelHandicap ?? 0 });
 
 /** Sorteio avulso em etapas; nada é salvo, o PDF sai das corridas revisadas (spec 6.8). */
 export function QuickDrawWizard({ athletes, states, defaultCity, canFilterOwners }: Props) {

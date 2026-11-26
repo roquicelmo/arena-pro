@@ -89,4 +89,32 @@ describe('CityPicker', () => {
     expect(onChange).toHaveBeenLastCalledWith({ uf: 'MG', cityCode: 3137601, cityName: 'lagoa da prata' });
     expect(hidden(container).value).toBe('3137601');
   });
+
+  it('sem allowUnknown não há checkbox', () => {
+    render(<CityPicker states={STATES} defaultUf="GO" />);
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
+
+  it('com allowUnknown e unknown os campos ficam desabilitados e o código vazio', async () => {
+    const onChange = vi.fn();
+    const onLoadingChange = vi.fn();
+    const { container } = render(
+      <CityPicker states={STATES} defaultUf="GO" defaultCity={{ code: 5201405, name: 'Caiapônia' }} allowUnknown unknown onUnknownChange={vi.fn()} onChange={onChange} onLoadingChange={onLoadingChange} />,
+    );
+    expect(screen.getByLabelText('Não informado')).toBeChecked();
+    expect(screen.getByLabelText('UF')).toBeDisabled();
+    expect(screen.getByLabelText('Cidade')).toBeDisabled();
+    expect(screen.getByLabelText('Cidade')).toHaveValue('Não informado');
+    expect(hidden(container).value).toBe('');
+    await waitFor(() => expect(onLoadingChange).toHaveBeenLastCalledWith(false));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('o checkbox avisa onUnknownChange', async () => {
+    const user = userEvent.setup();
+    const onUnknownChange = vi.fn();
+    render(<CityPicker states={STATES} defaultUf="GO" allowUnknown unknown={false} onUnknownChange={onUnknownChange} />);
+    await user.click(screen.getByLabelText('Não informado'));
+    expect(onUnknownChange).toHaveBeenCalledWith(true);
+  });
 });

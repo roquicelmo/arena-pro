@@ -22,9 +22,9 @@ const STEPS: { category: Category; label: string; plural: string; short: string 
   { category: 'PEZEIRO', label: 'Pezeiros', plural: 'pezeiros', short: 'pezeiro' },
 ];
 
-const hc = (value: number | undefined) => (value ?? 0).toFixed(1).replace('.', ',');
+const hc = (value: number | undefined) => (value === undefined ? '—' : value.toFixed(1).replace('.', ','));
 const handicapFor = (athlete: Competitor, category: Category) =>
-  category === 'CABECEIRO' ? athlete.headHandicap ?? athlete.handicap : athlete.heelHandicap ?? athlete.handicap;
+  category === 'CABECEIRO' ? athlete.headHandicap : athlete.heelHandicap;
 
 /**
  * Inscrição em duas etapas (cabeceiros, depois pezeiros): à esquerda os atletas

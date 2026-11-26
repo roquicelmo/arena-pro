@@ -24,6 +24,11 @@ export interface CityPickerProps {
   onChange?: (value: CityValue) => void;
   /** Avisa quando a lista de municípios da UF atual ainda está carregando. */
   onLoadingChange?: (loading: boolean) => void;
+  /** Opt-in: mostra o checkbox "Não informado" antes da UF. */
+  allowUnknown?: boolean;
+  /** Com `allowUnknown`, indica se "Não informado" está marcado (UF e cidade bloqueadas). */
+  unknown?: boolean;
+  onUnknownChange?: (unknown: boolean) => void;
 }
 
 const findCode = (list: Municipality[] | undefined, name: string): number | null => {
@@ -32,13 +37,14 @@ const findCode = (list: Municipality[] | undefined, name: string): number | null
   return list.find((city) => normalizeName(city.name) === wanted)?.code ?? null;
 };
 
-export function CityPicker({ states, defaultUf, defaultCity, error, hint, value, onChange, onLoadingChange }: CityPickerProps) {
+export function CityPicker({ states, defaultUf, defaultCity, error, hint, value, onChange, onLoadingChange, allowUnknown = false, unknown: unknownProp = false, onUnknownChange }: CityPickerProps) {
   const [internal, setInternal] = useState<CityValue>({
     uf: defaultUf,
     cityCode: defaultCity?.code ?? null,
     cityName: defaultCity?.name ?? '',
   });
   const current = value ?? internal;
+  const unknown = allowUnknown && unknownProp;
   const [lists, setLists] = useState<Record<string, Municipality[]>>({});
   const [failed, setFailed] = useState<Record<string, boolean>>({});
   const requested = useRef(new Set<string>());
@@ -59,7 +65,7 @@ export function CityPicker({ states, defaultUf, defaultCity, error, hint, value,
 
   useEffect(() => {
     const { uf } = current;
-    if (!uf || requested.current.has(uf)) return;
+    if (!uf || unknown || requested.current.has(uf)) return;
     requested.current.add(uf);
     void listMunicipalitiesAction(uf).then((result) => {
       if (result.ok) setLists((prev) => ({ ...prev, [uf]: result.data }));
@@ -71,10 +77,10 @@ export function CityPicker({ states, defaultUf, defaultCity, error, hint, value,
       requested.current.delete(uf);
       setFailed((prev) => ({ ...prev, [uf]: true }));
     });
-  }, [current]);
+  }, [current, unknown]);
 
   const list = lists[current.uf];
-  const loading = Boolean(current.uf) && !list && !failed[current.uf];
+  const loading = !unknown && Boolean(current.uf) && !list && !failed[current.uf];
   useEffect(() => {
     onLoadingChange?.(loading);
     // Ao desmontar (ex.: o usuário escolheu uma arena existente), não deixa o formulário travado.
@@ -83,31 +89,46 @@ export function CityPicker({ states, defaultUf, defaultCity, error, hint, value,
   }, [loading]);
   useEffect(() => {
     // A lista chegou depois do texto: resolve o código que ficou pendente.
-    if (!list) return;
+    if (!list || unknown) return;
     const code = findCode(list, current.cityName);
     if (code !== current.cityCode) emit({ ...current, cityCode: code });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [list]);
 
   return (
-    <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+    <div className={allowUnknown ? 'grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,2fr)]' : 'grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]'}>
+      {allowUnknown && (
+        <label className="flex min-w-0 items-center gap-2 text-sm font-medium text-ink-strong sm:self-end sm:pb-2.5">
+          <input
+            type="checkbox"
+            checked={unknown}
+            onChange={(event) => onUnknownChange?.(event.target.checked)}
+            className="size-4 shrink-0 accent-accent"
+          />
+          Não informado
+        </label>
+      )}
       <Select
         label="UF"
-        value={current.uf}
+        value={unknown ? '' : current.uf}
+        disabled={unknown}
         onChange={(event) => emit({ uf: event.target.value, cityCode: null, cityName: '' })}
+        className="min-w-0"
       >
+        {unknown && <option value="">Não informado</option>}
         {states.map((state) => (
           <option key={state.uf} value={state.uf}>
             {state.uf} · {state.name}
           </option>
         ))}
       </Select>
-      <div>
+      <div className="min-w-0">
         <Input
           label="Cidade"
           list={listId}
           autoComplete="off"
-          value={current.cityName}
+          value={unknown ? 'Não informado' : current.cityName}
+          disabled={unknown}
           error={error}
           hint={loading ? 'Carregando cidades…' : hint}
           onChange={(event) => {
@@ -120,7 +141,7 @@ export function CityPicker({ states, defaultUf, defaultCity, error, hint, value,
             <option key={city.code} value={city.name} />
           ))}
         </datalist>
-        <input type="hidden" name="cityCode" value={current.cityCode ?? ''} />
+        <input type="hidden" name="cityCode" value={unknown ? '' : current.cityCode ?? ''} />
       </div>
     </div>
   );

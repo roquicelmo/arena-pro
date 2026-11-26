@@ -62,6 +62,20 @@ describe('createAthlete', () => {
     });
   });
 
+  it('handicap nulo grava null', async () => {
+    await createAthlete(user, { ...data, heelHandicap: null });
+    expect(prisma.athlete.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ headHandicap: 5, heelHandicap: null }) }),
+    );
+  });
+
+  it('sem cidade grava cityCode, city e state nulos', async () => {
+    await createAthlete(user, { ...data, cityCode: null, city: null, state: null });
+    expect(prisma.athlete.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ cityCode: null, city: null, state: null }) }),
+    );
+  });
+
   it('sem cityCode grava o texto legado e deixa cityCode nulo', async () => {
     await createAthlete(user, { ...data, city: 'Goiânia', state: 'GO' });
     expect(prisma.athlete.create).toHaveBeenCalledWith(
@@ -106,6 +120,20 @@ describe('updateAthlete / deactivateAthlete', () => {
     await expect(updateAthlete(user, 'a1', { name: 'Novo nome' })).rejects.toMatchObject(denied);
     await expect(deactivateAthlete(user, 'a1')).rejects.toMatchObject(denied);
     expect(prisma.athlete.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('updateAthlete com campos limpos', () => {
+  it('cidade não informada zera cityCode, city e state', async () => {
+    prisma.athlete.findFirst.mockResolvedValue({ id: 'a1', ownerId: 'u1' });
+    await updateAthlete(user, 'a1', { cityCode: null, city: null, state: null });
+    expect(prisma.athlete.update).toHaveBeenCalledWith({ where: { id: 'a1' }, data: { cityCode: null, city: null, state: null } });
+  });
+
+  it('handicap null limpa e undefined não altera', async () => {
+    prisma.athlete.findFirst.mockResolvedValue({ id: 'a1', ownerId: 'u1' });
+    await updateAthlete(user, 'a1', { headHandicap: null, heelHandicap: 2 });
+    expect(prisma.athlete.update).toHaveBeenCalledWith({ where: { id: 'a1' }, data: { headHandicap: null, heelHandicap: 2 } });
   });
 });
 

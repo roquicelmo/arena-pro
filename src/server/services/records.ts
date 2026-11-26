@@ -21,7 +21,8 @@ const ownerSelect = { select: { name: true, email: true } } as const;
 const sharesSelect = { select: { user: { select: { id: true, name: true, email: true } } }, orderBy: { user: { name: 'asc' } } } as const;
 const label = (u: { name: string | null; email: string }) => u.name ?? u.email;
 const place = (city: string | null, state: string | null) => (city ? `${city}/${state ?? ''}` : '—');
-const handicap = (value: { toString(): string }) => Number(value.toString()).toFixed(1).replace('.', ',');
+const handicap = (value: { toString(): string } | null) =>
+  value == null ? '—' : Number(value.toString()).toFixed(1).replace('.', ',');
 const formatDate = (date: Date) =>
   `${String(date.getUTCDate()).padStart(2, '0')}/${String(date.getUTCMonth() + 1).padStart(2, '0')}/${date.getUTCFullYear()}`;
 

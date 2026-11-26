@@ -64,11 +64,64 @@ describe('AthleteFormDialog', () => {
     actions.createAthleteAction.mockResolvedValue({ ok: true, data: SAVED });
     const { user, onSaved, onClose } = setup();
     await user.type(screen.getByLabelText('Nome'), 'Zé Lima');
+    await user.type(screen.getByLabelText('Handicap de cabeceiro'), '2.5');
     await user.click(screen.getByRole('button', { name: 'Salvar atleta' }));
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(SAVED));
     expect(onClose).toHaveBeenCalled();
     expect(toast.success).toHaveBeenCalledWith('Atleta cadastrado.');
-    expect(actions.createAthleteAction).toHaveBeenCalledWith(expect.objectContaining({ name: 'Zé Lima', cityCode: 5201405, headHandicap: '2.5' }));
+    expect(actions.createAthleteAction).toHaveBeenCalledWith(expect.objectContaining({ name: 'Zé Lima', cityCode: 5201405, headHandicap: '2.5', heelHandicap: '', cityUnknown: false }));
+  });
+
+  it('novo atleta abre com os dois handicaps vazios', () => {
+    setup();
+    expect(screen.getByLabelText('Handicap de cabeceiro')).toHaveValue('');
+    expect(screen.getByLabelText('Handicap de pezeiro')).toHaveValue('');
+    expect(screen.getByText('Preencha ao menos um dos dois.')).toBeInTheDocument();
+  });
+
+  it('só pezeiro preenchido envia cabeceiro vazio', async () => {
+    actions.createAthleteAction.mockResolvedValue({ ok: true, data: SAVED });
+    const { user } = setup();
+    await user.type(screen.getByLabelText('Nome'), 'Zé Lima');
+    await user.type(screen.getByLabelText('Handicap de pezeiro'), '2');
+    await user.click(screen.getByRole('button', { name: 'Salvar atleta' }));
+    await waitFor(() => expect(actions.createAthleteAction).toHaveBeenCalled());
+    expect(actions.createAthleteAction).toHaveBeenCalledWith(expect.objectContaining({ headHandicap: '', heelHandicap: '2' }));
+  });
+
+  it('"Não informado" bloqueia UF e cidade, envia cityUnknown e pula a checagem de duplicados', async () => {
+    actions.createAthleteAction.mockResolvedValue({ ok: true, data: SAVED });
+    const { user } = setup();
+    await user.type(screen.getByLabelText('Nome'), 'Zé Lima');
+    await user.type(screen.getByLabelText('Handicap de cabeceiro'), '3');
+    await user.click(screen.getByLabelText('Não informado'));
+    expect(screen.getByLabelText('UF')).toBeDisabled();
+    expect(screen.getByLabelText('UF')).toHaveDisplayValue('Não informado');
+    expect(screen.getByLabelText('Cidade')).toBeDisabled();
+    expect(screen.getByLabelText('Cidade')).toHaveValue('Não informado');
+    await user.click(screen.getByRole('button', { name: 'Salvar atleta' }));
+    await waitFor(() => expect(actions.createAthleteAction).toHaveBeenCalled());
+    expect(actions.createAthleteAction).toHaveBeenCalledWith(expect.objectContaining({ cityUnknown: true, cityCode: '' }));
+    expect(actions.checkAthleteDuplicatesAction).not.toHaveBeenCalled();
+  });
+
+  it('desmarcar "Não informado" volta para Caiapônia habilitado', async () => {
+    const { user } = setup();
+    await user.click(screen.getByLabelText('Não informado'));
+    await user.click(screen.getByLabelText('Não informado'));
+    expect(screen.getByLabelText('UF')).toBeEnabled();
+    expect(screen.getByLabelText('Cidade')).toBeEnabled();
+    expect(screen.getByLabelText('Cidade')).toHaveValue('Caiapônia');
+  });
+
+  it('edição de atleta sem cidade abre marcada e desmarcar mostra o padrão', async () => {
+    const { user } = setup({ athlete: { id: 'a1', nome: 'Zé', handicap: 3, heelHandicap: 3 } });
+    expect(screen.getByLabelText('Não informado')).toBeChecked();
+    expect(screen.getByLabelText('Cidade')).toBeDisabled();
+    expect(screen.getByLabelText('Handicap de cabeceiro')).toHaveValue('');
+    await user.click(screen.getByLabelText('Não informado'));
+    expect(screen.getByLabelText('Cidade')).toHaveValue('Caiapônia');
+    expect(screen.getByLabelText('UF')).toHaveValue('GO');
   });
 
   it('edição abre preenchida com os dados do atleta', () => {
@@ -86,6 +139,7 @@ describe('AthleteFormDialog', () => {
 
   it('cidade a revisar começa vazia com a dica', async () => {
     setup({ athlete: { id: 'a1', nome: 'Zé', handicap: 3, cidade: 'Lagoa Velha', cityNeedsReview: true } });
+    expect(screen.getByLabelText('Não informado')).not.toBeChecked();
     expect(screen.getByLabelText('Cidade')).toHaveValue('');
     expect(await screen.findByText('Cidade anterior: Lagoa Velha')).toBeInTheDocument();
   });
