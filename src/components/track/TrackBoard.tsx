@@ -5,8 +5,9 @@ import { Crosshair, Download, Eraser } from 'lucide-react';
 import type { Run } from '../../types/roping';
 import { currentRunId, trackStats } from '../../lib/currentRun';
 import { normalizeName } from '../../lib/text';
-import { Button, Input, Select, StatTile } from '../ui';
+import { Button, Input, Select, StatTile, toast } from '../ui';
 import { TrackHeader, TrackRow } from './TrackRow';
+import { downloadTrackWorkbook } from '../../lib/trackExport';
 import { trackTimesWidth } from './trackGrid';
 
 type Bull = 1 | 2 | 3;
@@ -18,24 +19,21 @@ interface Props {
   onClearAllTimes: () => void;
 }
 
-const csvCell = (v: string | number | null | undefined) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-
-function exportCsv(runs: Run[]) {
-  const head = ['Nº', 'Bateria', 'Cruzamento', 'Cabeceiro', 'HC Cab.', 'Pezeiro', 'HC Pé', 'SHC', 'Bois', 'T1', 'T2', 'T3', 'Total', 'Média', 'NT'];
-  const rows = runs.map((r) => [r.numero, r.bateria, r.cruzamento, r.cabeceiro.nome, r.cabeceiro.handicap, r.pezeiro.nome, r.pezeiro.handicap, r.shc, r.bois,
-    r.times.boi1, r.times.boi2, r.times.boi3, r.totalTime, r.mediaFinal, r.isNt ? 'sim' : '']);
-  const blob = new Blob(['﻿' + [head, ...rows].map((row) => row.map(csvCell).join(';')).join('\n')], { type: 'text/csv;charset=utf-8' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = 'pista.csv';
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-}
-
 /** Pista (spec 6.6): estatísticas, corrida atual, busca/bateria e lançamento por teclado. */
 export function TrackBoard({ runs, locked = false, onUpdateTime, onClearAllTimes }: Props) {
   const [search, setSearch] = useState('');
   const [battery, setBattery] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const onExport = async () => {
+    setExporting(true);
+    try {
+      await downloadTrackWorkbook(runs);
+    } catch {
+      toast.error('Não foi possível gerar a planilha. Tente de novo.');
+    } finally {
+      setExporting(false);
+    }
+  };
   const current = useMemo(() => currentRunId(runs), [runs]);
   const stats = useMemo(() => trackStats(runs), [runs]);
   const batteries = useMemo(() => [...new Set(runs.map((r) => r.bateria))].sort((a, b) => a - b), [runs]);
@@ -82,7 +80,7 @@ export function TrackBoard({ runs, locked = false, onUpdateTime, onClearAllTimes
         </div>
         <div className="flex flex-wrap gap-2 md:ml-auto">
           <Button disabled={!current} onClick={goToCurrent}><Crosshair className="h-4 w-4" aria-hidden="true" /> Ir para a corrida atual</Button>
-          <Button variant="secondary" onClick={() => exportCsv(runs)}><Download className="h-4 w-4" aria-hidden="true" /> CSV</Button>
+          <Button variant="secondary" disabled={exporting} onClick={() => void onExport()}><Download className="h-4 w-4" aria-hidden="true" /> {exporting ? 'Gerando…' : 'Excel'}</Button>
           <Button variant="ghost" disabled={locked} onClick={onClearAllTimes}><Eraser className="h-4 w-4" aria-hidden="true" /> Limpar tempos</Button>
         </div>
       </div>

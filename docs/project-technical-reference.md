@@ -1557,7 +1557,7 @@ Componentes:
 - [`registrations/RegistrationsView.tsx`](../src/components/registrations/RegistrationsView.tsx) — inscrições;
 - [`quick-draw/QuickDrawWizard.tsx`](../src/components/quick-draw/QuickDrawWizard.tsx) e `ParticipantPicker.tsx` — sorteio avulso;
 - [`track/TrackBoard.tsx`](../src/components/track/TrackBoard.tsx), `TrackRow.tsx` e `TimeCell.tsx` — pista: corrida atual, estatísticas,
-  busca/bateria, CSV e teclado (Enter avança, N marca NT, Esc desfaz).
+  busca/bateria, exportação Excel formatada (`src/lib/trackExport.ts`, exceljs carregado sob demanda) e teclado (Enter avança, N marca NT, Esc desfaz).
 
 ### Locução
 
