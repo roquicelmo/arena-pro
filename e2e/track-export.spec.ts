@@ -27,7 +27,8 @@ test('exporta a pista em Excel já formatado', async ({ page }) => {
   await workbook.xlsx.readFile(await download.path());
   const sheet = workbook.getWorksheet('Pista')!;
   expect(sheet.getRow(1).getCell(4).value).toBe('Cabeceiro');
-  expect(sheet.getColumn(1).width).toBe(5);
+  // Colunas numéricas mostram o título inteiro (texto + botão de filtro).
+  expect(sheet.getColumn(2).width).toBeGreaterThanOrEqual('Bateria'.length + 3);
   expect(sheet.getRow(2).getCell(5).alignment?.horizontal).toBe('center');
   expect(sheet.rowCount).toBeGreaterThan(1);
 });

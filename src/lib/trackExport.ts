@@ -8,9 +8,16 @@ const toTime = (value: string | undefined) => {
   return Number.isFinite(n) ? n : null;
 };
 
-/** Largura (em caracteres do Excel) que cabe o maior texto da coluna, nomes em caixa alta incluídos. */
+/**
+ * Largura que mostra o título inteiro: o título fica em negrito e divide a célula
+ * com o botão de filtro da tabela (~3 caracteres), por isso a folga extra.
+ */
+// Mínimo 10: o exceljs não grava largura 9 (seu padrão) e o Excel cairia no padrão dele (8,43).
+export const headerWidth = (header: string) => Math.max(10, Math.ceil(header.length * 1.2) + 4);
+
+/** Largura (em caracteres do Excel) que cabe o título e o maior texto da coluna, nomes em caixa alta incluídos. */
 export const fitWidth = (header: string, values: string[]) =>
-  Math.ceil(Math.max(header.length, ...values.map((v) => v.length)) * 1.15) + 2;
+  Math.max(headerWidth(header), Math.ceil(Math.max(0, ...values.map((v) => v.length)) * 1.15) + 2);
 
 type ColumnSpec = { header: string; key: string; width: number; align: 'left' | 'center'; numFmt?: string };
 
@@ -29,22 +36,24 @@ export function buildTrackWorkbook(ExcelJS: { Workbook: new () => Workbook }, ru
 
   const heads = runs.map((r) => r.cabeceiro.nome);
   const heels = runs.map((r) => r.pezeiro.nome);
+  // Colunas numéricas: largura do título (os números, até "16.57", cabem nela).
+  const num = (header: string, key: string, numFmt?: string): ColumnSpec => ({ header, key, width: headerWidth(header), align: 'center', numFmt });
   const columns: ColumnSpec[] = [
-    { header: 'Nº', key: 'numero', width: 5, align: 'center' },
-    { header: 'Bateria', key: 'bateria', width: 8, align: 'center' },
+    num('Nº', 'numero'),
+    num('Bateria', 'bateria'),
     { header: 'Cruzamento', key: 'cruzamento', width: fitWidth('Cruzamento', runs.map((r) => r.cruzamento ?? '')), align: 'center' },
     { header: 'Cabeceiro', key: 'cabeceiro', width: fitWidth('Cabeceiro', heads), align: 'left' },
-    { header: 'HC Cab.', key: 'hcCab', width: 9, align: 'center', numFmt: '0.0' },
+    num('HC Cab.', 'hcCab', '0.0'),
     { header: 'Pezeiro', key: 'pezeiro', width: fitWidth('Pezeiro', heels), align: 'left' },
-    { header: 'HC Pé', key: 'hcPe', width: 9, align: 'center', numFmt: '0.0' },
-    { header: 'Soma HC', key: 'shc', width: 10, align: 'center', numFmt: '0.0' },
-    { header: 'Bois', key: 'bois', width: 6, align: 'center' },
-    { header: 'Boi 1', key: 't1', width: 9, align: 'center', numFmt: '0.00' },
-    { header: 'Boi 2', key: 't2', width: 9, align: 'center', numFmt: '0.00' },
-    { header: 'Boi 3', key: 't3', width: 9, align: 'center', numFmt: '0.00' },
-    { header: 'Total', key: 'total', width: 10, align: 'center', numFmt: '0.00' },
-    { header: 'Média', key: 'media', width: 10, align: 'center', numFmt: '0.00' },
-    { header: 'NT', key: 'nt', width: 6, align: 'center' },
+    num('HC Pé', 'hcPe', '0.0'),
+    num('Soma HC', 'shc', '0.0'),
+    num('Bois', 'bois'),
+    num('Boi 1', 't1', '0.00'),
+    num('Boi 2', 't2', '0.00'),
+    num('Boi 3', 't3', '0.00'),
+    num('Total', 'total', '0.00'),
+    num('Média', 'media', '0.00'),
+    num('NT', 'nt'),
   ];
 
   const rows = runs.map((r) => [

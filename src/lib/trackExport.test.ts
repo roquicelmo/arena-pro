@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs';
 import { describe, expect, it } from 'vitest';
 import type { Run } from '../types/roping';
-import { buildTrackWorkbook, fitWidth } from './trackExport';
+import { buildTrackWorkbook, fitWidth, headerWidth } from './trackExport';
 
 const run = (numero: number, head: string, heel: string, times: Partial<Run['times']>, extra: Partial<Run> = {}): Run =>
   ({
@@ -40,10 +40,15 @@ describe('buildTrackWorkbook', () => {
     expect(buildTrackWorkbook(ExcelJS, runs).getWorksheet('Pista')!.getTables()).toHaveLength(1);
   });
 
-  it('Nº e Bateria estreitas; nomes na largura do maior nome', async () => {
+  it('colunas numéricas na largura do título; nomes na largura do maior nome', async () => {
     const sheet = await roundTrip(runs);
-    expect(sheet.getColumn(1).width).toBe(5);
-    expect(sheet.getColumn(2).width).toBe(8);
+    const headers = sheet.getRow(1).values as string[];
+    for (const col of [1, 2, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15]) {
+      expect(sheet.getColumn(col).width, headers[col]).toBe(headerWidth(headers[col]));
+      // Título em negrito + botão de filtro (~3 caracteres) cabem sem cortar.
+      expect(sheet.getColumn(col).width!, headers[col]).toBeGreaterThanOrEqual(headers[col].length + 3);
+    }
+    expect(sheet.getColumn(3).width).toBe(headerWidth('Cruzamento'));
     expect(sheet.getColumn(4).width).toBe(fitWidth('Cabeceiro', [long, 'BAIANO']));
     expect(sheet.getColumn(4).width).toBeGreaterThan(long.length);
     expect(sheet.getColumn(6).width).toBe(fitWidth('Pezeiro', ['WELLITON', 'X SALADA']));
